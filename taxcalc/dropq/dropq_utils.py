@@ -90,8 +90,12 @@ def dropq_calculate(year_n, start_year,
     growdiff_response.apply_to(growfactors_post)
 
     # create pre-reform Calculator instance using PUF input data & weights
-    recs1 = Records(data=copy.deepcopy(taxrec_df),
-                    gfactors=growfactors_pre)
+    if taxrec_df is None:
+        recs1 = Records.cps_constructor(growfactors=growfactors_pre)
+    else:
+        recs1 = Records(data=copy.deepcopy(taxrec_df),
+                        gfactors=growfactors_pre)
+
     policy1 = Policy(gfactors=growfactors_pre)
     calc1 = Calculator(policy=policy1, records=recs1, consumption=consump)
     while calc1.current_year < start_year:
@@ -102,9 +106,13 @@ def dropq_calculate(year_n, start_year,
     # optionally compute mask
     if mask_computed:
         # create pre-reform Calculator instance with extra income using
-        # PUF input data & weights
-        recs1p = Records(data=copy.deepcopy(taxrec_df),
-                         gfactors=growfactors_pre)
+        # PUF (or CPS) input data & weights
+        if taxrec_df is None:
+            recs1p = Records.cps_constructor(growfactors=growfactors_pre)
+        else:
+            recs1p = Records(data=copy.deepcopy(taxrec_df),
+                             gfactors=growfactors_pre)
+
         # add one dollar to the income of each filing unit to determine
         # which filing units undergo a resulting change in tax liability
         recs1p.e00200 += 1.0  # pylint: disable=no-member
@@ -144,8 +152,11 @@ def dropq_calculate(year_n, start_year,
         raise ValueError(msg)
 
     # create post-reform Calculator instance using PUF input data & weights
-    recs2 = Records(data=copy.deepcopy(taxrec_df),
-                    gfactors=growfactors_post)
+    if taxrec_df is None:
+        recs2 = Records.cps_constructor(growfactors=growfactors_post)
+    else:
+        recs2 = Records(data=copy.deepcopy(taxrec_df),
+                        gfactors=growfactors_post)
     policy2 = Policy(gfactors=growfactors_post)
     policy_reform = user_mods['policy']
     policy2.implement_reform(policy_reform)

@@ -225,3 +225,55 @@ def test_reform_warnings_errors():
     msg_dict = reform_warnings_errors(bad2_mods)
     assert len(msg_dict['warnings']) == 0
     assert len(msg_dict['errors']) > 0
+
+
+@pytest.mark.parametrize("mask_computed", [True, False])
+def test_with_cpscsv(mask_computed):
+    # specify usermods dictionary in code
+    start_year = 2017
+    reform_year = start_year
+    analysis_year = 2026
+    year_n = analysis_year - start_year
+    reform = {
+        '_FICA_ss_trt': [0.2]
+    }
+    usermods = dict()
+    usermods['policy'] = {reform_year: reform}
+    usermods['consumption'] = {}
+    usermods['behavior'] = {}
+    usermods['growdiff_baseline'] = {}
+    usermods['growdiff_response'] = {}
+    usermods['gdp_elasticity'] = {}
+    # seed = random_seed(usermods)
+    # assert seed == 1574318062
+    # create a Policy object (pol) containing reform policy parameters
+    pol = Policy()
+    pol.implement_reform(usermods['policy'])
+    # create a Records object (rec) containing all puf.csv input records
+    rec = Records.cps_constructor()
+    # create a Calculator object using clp policy and puf records
+    calc = Calculator(policy=pol, records=rec)
+    while calc.current_year < analysis_year:
+        calc.increment_year()
+    # create aggregate diagnostic table (adt) as a Pandas DataFrame object
+    adt = multiyear_diagnostic_table(calc, 1)
+    taxes_fullsample = adt.loc["Combined Liability ($b)"]
+    assert taxes_fullsample is not None
+    fulls_reform_revenue = float(taxes_fullsample.loc[analysis_year])
+    # call run_nth_year_tax_calc_model function
+    resdict = run_nth_year_tax_calc_model(year_n, start_year,
+                                          usermods,
+                                          taxrec_df=None,
+                                          mask_computed=mask_computed,
+                                          return_json=True)
+    total = resdict['aggr_2']
+    dropq_reform_revenue = float(total['combined_tax_9']) * 1e-9
+    # assert that dropq revenue is similar to the fullsample calculation
+    diff = abs(fulls_reform_revenue - dropq_reform_revenue)
+    proportional_diff = diff / fulls_reform_revenue
+    print('mask_computed', mask_computed)
+    frmt = 'f,d,adiff,pdiff=  {:.4f}  {:.4f}  {:.4f}  {}'
+    print(frmt.format(fulls_reform_revenue, dropq_reform_revenue,
+                      diff, proportional_diff))
+    assert proportional_diff < 0.0001  # one-hundredth of one percent
+    # assert 1 == 2  # uncomment to force test failure with above print out

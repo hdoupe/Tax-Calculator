@@ -81,7 +81,9 @@ def reform_warnings_errors(user_mods):
 
 
 def run_nth_year_tax_calc_model(year_n, start_year,
-                                taxrec_df, user_mods,
+                                user_mods,
+                                taxrec_df=None,
+                                mask_computed=True,
                                 return_json=True):
     """
     The run_nth_year_tax_calc_model function assumes user_mods is a
