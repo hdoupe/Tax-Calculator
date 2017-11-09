@@ -133,7 +133,7 @@ def zsum(self):
     grouped DataFrames that may or not be empty, it makes more sense for us
     to have a sum() function that returns 0 instead of NaN.
     """
-    return self.sum() if len(self) > 0 else 0
+    return self.old_sum() if len(self) > 0 else 0
 
 
 def unweighted_sum(pdf, col_name):

@@ -19,3 +19,5 @@ del get_versions
 
 # zsum is defined in utils.py
 pd.Series.zsum = zsum
+pd.Series.old_sum = pd.Series.sum
+pd.Series.sum = zsum
