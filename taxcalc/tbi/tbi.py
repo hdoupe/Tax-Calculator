@@ -94,6 +94,8 @@ def run_nth_year_tax_calc_model(year_n, start_year,
                                      use_puf_not_cps, use_full_sample,
                                      user_mods,
                                      behavior_allowed=True)
+    calculations_done = time.time()
+    print("calculations took ", calculations_done - start_time)
 
     # extract raw results from calc1 and calc2
     rawres1 = results(calc1.records)
