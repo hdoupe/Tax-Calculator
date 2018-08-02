@@ -140,7 +140,7 @@ RESULTS_TABLE_LABELS = {
     'diff_comb_xbin': ('Combined Payroll and Individual Income Tax: Difference'
                        ' between Base and User plans by expanded income bin'),
     'diff_comb_xdec': ('Combined Payroll and Individual Income Tax: Difference'
-                       'between Base and User plans by expanded income '
+                       ' between Base and User plans by expanded income '
                        'decile'),
     'diff_itax_xbin': ('Individual Income Tax: Difference between Base and '
                        'User plans by expanded income bin'),

@@ -33,6 +33,7 @@ from taxcalc import (DIST_TABLE_LABELS, DIFF_TABLE_LABELS,
                      proportional_change_in_gdp, GrowDiff, GrowFactors,
                      Policy, Behavior, Consumption)
 from taxcalc.utils import mtr_graph_data
+from operator import itemgetter
 
 AGG_ROW_NAMES = AGGR_ROW_NAMES
 
@@ -96,6 +97,14 @@ def reform_warnings_errors(user_mods, using_puf):
         rtn_dict['consumption']['errors'] = valerr_msg.__str__()
     # return composite dictionary of warnings/errors
     return rtn_dict
+
+
+def pdf_to_clean_html(pdf):
+    """Takes a PDF and returns an HTML table without any deprecated tags or
+    irrelevant styling"""
+    return (pdf.to_html()
+            .replace(' border="1"', '')
+            .replace(' style="text-align: right;"', ''))
 
 
 def run_nth_year_taxcalc_model(year_n, start_year,
@@ -193,12 +202,17 @@ def run_nth_year_taxcalc_model(year_n, start_year,
     labels.update({x: DIST_TABLE_LABELS[i]
                    for i, x in enumerate(DIST_TABLE_COLUMNS)})
 
-    # nested function used below
+    # nested functions used below
     def label_columns(pdf):
-        """
-        label_columns embedded function revises all column names in pdf
-        """
         pdf.columns = [(labels[str(col)] if str(col) in labels else str(col))
+                       for col in pdf.columns]
+        return pdf
+
+    def append_year(pdf):
+        """
+        append_year embedded function revises all column names in pdf
+        """
+        pdf.columns = ['{}_{}'.format(col, year_n + start_year)
                        for col in pdf.columns]
         return pdf
 
@@ -208,32 +222,56 @@ def run_nth_year_taxcalc_model(year_n, start_year,
     # what if we allowed an aggregate format call?
     #  - presents project with all data proeduced in a run?
 
-    res = dict()
-    for tbl in sres:
-        res[tbl] = label_columns(sres[tbl])
     if return_html:
         formatted = {'outputs': []}
-        for tbl in res:
-            year = str(start_year + year_n)
-            formatted['outputs'].append({
-                'tags': RESULTS_TABLE_TAGS[tbl],
-                'year': year,
-                'title': '{} ({})'.format(
-                    (RESULTS_TABLE_LABELS[tbl]
-                     if tbl in RESULTS_TABLE_LABELS else tbl),
-                    year),
-                'download_only': res[tbl].to_csv(),
-                'renderable': (res[tbl].to_html()
-                               .replace(' border="1"', '')
-                               .replace(' style="text-align: right;"', ''))
-            })
+        pdfs_to_aggregate = {}
+        for id in sres:
+            if id.startswith('aggr'):
+                tbl = append_year(sres[id])
+                pdfs_to_aggregate[id] = year_n, tbl.to_json()
+            else:
+                tbl = label_columns(sres[id])
+                year = str(start_year + year_n)
+                title = '{} ({})'.format(RESULTS_TABLE_LABELS[id],
+                                         year)
+                formatted['outputs'].append({
+                    'tags': RESULTS_TABLE_TAGS[id],
+                    'year': year,
+                    'title': title,
+                    'downloadable': [{'filename': title + '.csv',
+                                      'text': tbl.to_csv()}],
+                    'renderable': pdf_to_clean_html(tbl)
+                })
         elapsed_time = time.time() - start_time
         print('elapsed time for this run: {:.1f}'.format(elapsed_time))
-        return formatted
+        return formatted, pdfs_to_aggregate
     else:
         elapsed_time = time.time() - start_time
         print('elapsed time for this run: {:.1f}'.format(elapsed_time))
-        return res
+        return sres
+
+
+def run_taxcalc_years_aggregation(pdfs_to_aggregate):
+    """Takes a dictionary matching keys of table IDs with lists of tuples of
+       a year and a JSON representation of a Pandas dataframe, and
+       aggregates the contained results into HTML and CSV"""
+    formatted = {'aggr_outputs': []}
+    year_getter = itemgetter(0)
+    for id in ('aggr_d', 'aggr_1', 'aggr_2'):
+        pdfs = pdfs_to_aggregate[id]
+        pdfs.sort(key=year_getter)
+        tbl = pd.concat((pd.read_json(i[1]) for i in pdfs),
+                        axis='columns')
+        title = RESULTS_TABLE_LABELS[id]
+        formatted['aggr_outputs'].append({
+            'tags': RESULTS_TABLE_TAGS[id],
+            'title': title,
+            'downloadable': [{'filename': title + '.csv',
+                              'text': tbl.to_csv()}],
+            'renderable': pdf_to_clean_html(tbl)
+        })
+    return formatted
+
 
 def run_nth_year_gdp_elast_model(year_n, start_year,
                                  use_puf_not_cps,
