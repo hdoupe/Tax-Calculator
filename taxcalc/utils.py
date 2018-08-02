@@ -158,7 +158,9 @@ RESULTS_TABLE_LABELS = {
                    'decile'),
     'aggr_1': 'Total Liabilities Baseline by Calendar Year',
     'aggr_d': 'Total Liabilities Change by Calendar Year',
-    'aggr_2': 'Total Liabilities Reform by Calendar Year'}
+    'aggr_2': 'Total Liabilities Reform by Calendar Year',
+    'mtr_primary': 'MTR w.r.t. Primary Earner (percentile)',
+    'mtr_spouse': 'MTR w.r.t. Spouse (percentile)'}
 
 
 RESULTS_TABLE_TAGS = {
@@ -182,6 +184,10 @@ RESULTS_TABLE_TAGS = {
                    'grouping': 'bins'},
     'dist2_xdec': {'table_type': 'dist', 'law': 'reform',
                    'grouping': 'deciles'},
+    'mtr_primary': {'table_type': 'mtr', 'wrt_type': 'primary',
+                    'grouping': 'percentiles'},
+    'mtr_spouse': {'table_type': 'mtr', 'wrt_type': 'spouse',
+                   'grouping': 'percentiles'},
     'aggr_1': {},
     'aggr_d': {},
     'aggr_2': {}

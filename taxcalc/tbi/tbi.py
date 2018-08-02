@@ -32,6 +32,7 @@ from taxcalc import (DIST_TABLE_LABELS, DIFF_TABLE_LABELS,
                      RESULTS_TABLE_LABELS, RESULTS_TABLE_TAGS,
                      proportional_change_in_gdp, GrowDiff, GrowFactors,
                      Policy, Behavior, Consumption)
+from taxcalc.utils import mtr_graph_data
 
 AGG_ROW_NAMES = AGGR_ROW_NAMES
 
@@ -125,6 +126,27 @@ def run_nth_year_taxcalc_model(year_n, start_year,
     dv1 = calc1.distribution_table_dataframe()
     dv2 = calc2.distribution_table_dataframe()
 
+    _, _, mtrp1 = calc1.mtr('e00200p')
+    _, _, mtrp2 = calc2.mtr('e00200p')
+    record_variables = ['s006', 'MARS', 'expanded_income', 'e00200p']
+    vdf = calc2.dataframe(record_variables)
+    vdf['mtr1'] = mtrp1
+    vdf['mtr2'] = mtrp2
+    datap = mtr_graph_data(vdf,
+                          year=calc2.current_year,
+                          mtr_variable='e00200p')['lines']
+
+    _, _, mtrs1 = calc1.mtr('e00200s')
+    _, _, mtrs2 = calc2.mtr('e00200s')
+    record_variables = ['s006', 'MARS', 'expanded_income', 'e00200p']
+    vdf = calc2.dataframe(record_variables)
+    vdf['mtr1'] = mtrs1
+    vdf['mtr2'] = mtrs2
+    datas = mtr_graph_data(vdf,
+                          mars=2,
+                          year=calc2.current_year,
+                          mtr_variable='e00200p')['lines']
+
     # delete calc1 and calc2 now that raw results have been extracted
     del calc1
     del calc2
@@ -163,6 +185,8 @@ def run_nth_year_taxcalc_model(year_n, start_year,
         sres = summary_diff_xbin(sres, dv1, dv2)
         sres = summary_dist_xdec(sres, dv1, dv2)
         sres = summary_diff_xdec(sres, dv1, dv2)
+        sres['mtr_primary'] = datap
+        sres['mtr_spouse'] = datas
 
     labels = {x: DIFF_TABLE_LABELS[i]
               for i, x in enumerate(DIFF_TABLE_COLUMNS[:-2])}
