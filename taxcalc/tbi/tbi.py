@@ -251,13 +251,15 @@ def run_nth_year_taxcalc_model(year_n, start_year,
         return sres
 
 
-def run_taxcalc_years_aggregation(pdfs_to_aggregate):
+def run_taxcalc_years_aggregation(pdfs_to_aggregate,
+                                  ids=('aggr_d', 'aggr_1', 'aggr_2'),
+                                  labels=RESULTS_TABLE_LABELS):
     """Takes a dictionary matching keys of table IDs with lists of tuples of
        a year and a JSON representation of a Pandas dataframe, and
        aggregates the contained results into HTML and CSV"""
     formatted = {'aggr_outputs': []}
     year_getter = itemgetter(0)
-    for id in ('aggr_d', 'aggr_1', 'aggr_2'):
+    for id in ids:
         pdfs = pdfs_to_aggregate[id]
         pdfs.sort(key=year_getter)
         tbl = pd.concat((pd.read_json(i[1]) for i in pdfs),
@@ -304,14 +306,10 @@ def run_nth_year_gdp_elast_model(year_n, start_year,
     else:
         gdp_effect = 0.0
 
-    # return gdp_effect results
     if return_dict:
-        gdp_df = pd.DataFrame(data=[gdp_effect], columns=['col0'])
-        gdp_elast_names_n = [x + '_' + str(year_n)
-                             for x in GDP_ELAST_ROW_NAMES]
-        gdp_elast_total = create_dict_table(gdp_df,
-                                            row_names=gdp_elast_names_n,
-                                            num_decimals=5)
-        gdp_elast_total = dict((k, v[0]) for k, v in gdp_elast_total.items())
-        return gdp_elast_total
-    return gdp_effect
+        df = pd.DataFrame({'gdp_effect_' + str(year_n): [gdp_effect]})
+        aggr = {'gdp_effect': (year_n, df.to_json())}
+        formatted = {'outputs': []}
+        return formatted, aggr
+    else:
+        return gdp_effect
