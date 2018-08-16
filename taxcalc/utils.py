@@ -136,7 +136,7 @@ SOI_AGI_BINS = [-9e99, 1.0, 5e3, 10e3, 15e3, 20e3, 25e3, 30e3, 40e3, 50e3,
                 75e3, 100e3, 200e3, 500e3, 1e6, 1.5e6, 2e6, 5e6, 10e6, 9e99]
 
 
-RESULTS_TABLE_LABELS = {
+RESULTS_TABLE_TITLES = {
     'diff_comb_xbin': ('Combined Payroll and Individual Income Tax: Difference'
                        ' between Base and User plans by expanded income bin'),
     'diff_comb_xdec': ('Combined Payroll and Individual Income Tax: Difference'
@@ -191,6 +191,13 @@ RESULTS_TABLE_TAGS = {
     'aggr_1': {},
     'aggr_d': {},
     'aggr_2': {}
+}
+
+RESULTS_TOTAL_ROW_KEY_LABELS = {
+    'ind_tax': 'Individual Income Tax Liability Change',
+    'payroll_tax': 'Payroll Tax Liability Change',
+    'combined_tax': ('Combined Payroll and Individual Income Tax Liability '
+                     'Change'),
 }
 
 
