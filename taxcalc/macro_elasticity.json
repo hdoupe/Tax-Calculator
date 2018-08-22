@@ -1,0 +1,20 @@
+{
+    "_BE_sub": {
+        "long_name": "Elasticity",
+        "description": "Input for macro elasticity model.",
+        "section_1": "Elasticity",
+        "section_2": "Elasticity Value",
+        "notes": "",
+        "row_var": "FLPDYR",
+        "row_label": ["2013"],
+        "start_year": 2013,
+        "cpi_inflatable": false,
+        "cpi_inflated": false,
+        "col_var": "",
+        "col_label": "",
+        "boolean_value": false,
+        "integer_value": false,
+        "value": [0.0],
+        "range": {"min": 0, "max": 1}
+    }
+}
