@@ -1,3 +1,4 @@
+import json
 import os
 
 from marshmallow import fields
@@ -86,6 +87,8 @@ class SchemaBuilder:
         """
         if isinstance(params_or_path, str) and os.path.exists(params_or_path):
             params = utils.read_json(params_or_path)
+        elif isinstance(params_or_path, str):
+            params = json.loads(params_or_path)
         elif isinstance(params_or_path, dict):
             params = params_or_path
         else:

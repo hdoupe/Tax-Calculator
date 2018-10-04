@@ -126,3 +126,19 @@ def test_range_validation_on_default_variable_fails(schema_def_path,
     with pytest.raises(exceptions.ValidationError) as excinfo:
         sb.load_params(reform)
     print(excinfo)
+
+
+def test_doc_example(schema_def_path, base_spec_path):
+    from paramtools.build_schema import SchemaBuilder
+
+    reform = """{
+        "_cpi_offset": [{"year": "2015", "value": 0.0025},
+                        {"year": "2017", "value": 0.0025}],
+        "_STD": [{"year": 2018, "MARS": "separate", "value": 12001.00}],
+        "_II_em": [{"year": 2020, "value": 5000}],
+        "_II_brk1": [{"year": 2016, "MARS": "single", "value": 37649.00}]
+    }"""
+
+    sb = SchemaBuilder(schema_def_path, base_spec_path)
+    sb.build_schemas()
+    deserialized_reform = sb.load_params(reform)
