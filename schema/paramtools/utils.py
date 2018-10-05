@@ -28,26 +28,24 @@ from paramtools.schema import Float64, Int8, Bool_
 #         dim -= 1
 #     return fieldtype
 
+
 def get_type(data):
     """
     would be used if "type" is defined
     """
-    types = {
-        'integer': Int8(),
-        'bool': Bool_(),
-        'float': Float64(),
-    }
-    fieldtype = types[data['type']]
-    dim = data['number_dims']
+    types = {"integer": Int8(), "bool": Bool_(), "float": Float64()}
+    fieldtype = types[data["type"]]
+    dim = data["number_dims"]
     while dim > 0:
         fieldtype = fields.List(fieldtype)
         dim -= 1
     return fieldtype
 
+
 def read_json(path):
     """
     Read JSON file shortcut
     """
-    with open(path, 'r') as f:
+    with open(path, "r") as f:
         r = json.loads(f.read())
     return r

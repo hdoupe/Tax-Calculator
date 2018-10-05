@@ -3,8 +3,11 @@ import os
 
 from marshmallow import fields
 
-from paramtools.schema import (EmptySchema,
-                               BaseValidatorSchema, get_param_schema)
+from paramtools.schema import (
+    EmptySchema,
+    BaseValidatorSchema,
+    get_param_schema,
+)
 from paramtools import utils
 
 
@@ -21,10 +24,12 @@ class SchemaBuilder:
     Once this has been completed, the `load_params` method can be used to
     deserialize and validate parameter data.
     """
+
     def __init__(self, schema_def_path, base_spec_path):
         schema_def = utils.read_json(schema_def_path)
-        (self.BaseParamSchema,
-            self.dim_validators) = get_param_schema(schema_def)
+        (self.BaseParamSchema, self.dim_validators) = get_param_schema(
+            schema_def
+        )
         self.base_spec = utils.read_json(base_spec_path)
 
     def build_schemas(self):
@@ -53,27 +58,29 @@ class SchemaBuilder:
         validator_dict = {}
         for k, v in self.base_spec.items():
             fieldtype = utils.get_type(v)
-            classattrs = {'value': fieldtype, **self.dim_validators}
-            validator_dict[k] = type('ValidatorItem', (EmptySchema, ),
-                                     classattrs)
+            classattrs = {"value": fieldtype, **self.dim_validators}
+            validator_dict[k] = type(
+                "ValidatorItem", (EmptySchema,), classattrs
+            )
 
-            classattrs = {'value': fields.Nested(validator_dict[k], many=True)}
-            param_dict[k] = type('IndividualParamSchema',
-                                 (self.BaseParamSchema, ),
-                                 classattrs)
-
+            classattrs = {"value": fields.Nested(validator_dict[k], many=True)}
+            param_dict[k] = type(
+                "IndividualParamSchema", (self.BaseParamSchema,), classattrs
+            )
 
         classattrs = {k: fields.Nested(v) for k, v in param_dict.items()}
-        ParamSchema = type('ParamSchema', (EmptySchema, ), classattrs)
+        ParamSchema = type("ParamSchema", (EmptySchema,), classattrs)
         self.param_schema = ParamSchema()
         cleaned_base_spec = self.param_schema.load(self.base_spec)
 
-        classattrs = {k: fields.Nested(v(many=True))
-                      for k, v in validator_dict.items()}
-        ValidatorSchema = type('ValidatorSchema', (BaseValidatorSchema, ),
-                               classattrs)
+        classattrs = {
+            k: fields.Nested(v(many=True)) for k, v in validator_dict.items()
+        }
+        ValidatorSchema = type(
+            "ValidatorSchema", (BaseValidatorSchema,), classattrs
+        )
         self.validator_schema = ValidatorSchema()
-        self.validator_schema.context['base_spec'] = cleaned_base_spec
+        self.validator_schema.context["base_spec"] = cleaned_base_spec
 
     def load_params(self, params_or_path):
         """
@@ -92,5 +99,5 @@ class SchemaBuilder:
         elif isinstance(params_or_path, dict):
             params = params_or_path
         else:
-            raise ValueError('params_or_path is not dict or file path')
+            raise ValueError("params_or_path is not dict or file path")
         return self.validator_schema.load(params)
