@@ -6,15 +6,13 @@ Tax-Calculator tax-filing-unit Records class.
 # pylint --disable=locally-disabled records.py
 
 import os
-import json
-import six
 import numpy as np
 import pandas as pd
 from taxcalc.growfactors import GrowFactors
-from taxcalc.utils import read_egg_csv, read_egg_json
+from taxcalc.utils import read_egg_csv, read_egg_json, json_to_dict
 
 
-class Records(object):
+class Records():
     """
     Constructor for the tax-filing-unit Records class.
 
@@ -26,7 +24,7 @@ class Records(object):
         default value is the string 'puf.csv'
         For details on how to use your own data with the Tax-Calculator,
         look at the test_Calculator_using_nonstd_input() function in the
-        tests/test_calculate.py file.
+        tests/test_calculator.py file.
 
     exact_calculations: boolean
         specifies whether or not exact tax calculations are done without
@@ -34,8 +32,8 @@ class Records(object):
         default value is false.
 
     gfactors: GrowFactors class instance or None
-        containing record data extrapolation (or "blowup") factors.
-        NOTE: the constructor should never call the _blowup() method.
+        containing record data grow (or extrapolation) factors.
+        NOTE: the constructor should never call the _extrapolate() method.
 
     weights: string or Pandas DataFrame or None
         string describes CSV file in which weights reside;
@@ -58,7 +56,7 @@ class Records(object):
         use your own data with the Tax-Calculator, read the
         DATAPREP.md file in the top-level directory and then
         look at the test_Calculator_using_nonstd_input()
-        function in the taxcalc/tests/test_calculate.py file.
+        function in the taxcalc/tests/test_calculator.py file.
 
     Raises
     ------
@@ -233,7 +231,7 @@ class Records(object):
         self.__current_year += 1
         # apply variable extrapolation grow factors
         if self.gfactors is not None:
-            self._blowup(self.__current_year)
+            self._extrapolate(self.__current_year)
         # apply variable adjustment ratios
         self._adjust(self.__current_year)
         # specify current-year sample weights
@@ -260,7 +258,8 @@ class Records(object):
                                      Records.VAR_INFO_FILENAME)
         if os.path.exists(var_info_path):
             with open(var_info_path) as vfile:
-                vardict = json.load(vfile)
+                json_text = vfile.read()
+            vardict = json_to_dict(json_text)
         else:
             # cannot call read_egg_ function in unit tests
             vardict = read_egg_json(
@@ -286,16 +285,29 @@ class Records(object):
         return vardict
 
     # specify various sets of variable names
-    INTEGER_READ_VARS = None
-    MUST_READ_VARS = None
-    USABLE_READ_VARS = None
-    CALCULATED_VARS = None
-    CHANGING_CALCULATED_VARS = None
-    INTEGER_VARS = None
+    INTEGER_READ_VARS = set()
+    MUST_READ_VARS = set()
+    USABLE_READ_VARS = set()
+    CALCULATED_VARS = set()
+    CHANGING_CALCULATED_VARS = set()
+    INTEGER_VARS = set()
+
+    @staticmethod
+    def read_cps_data():
+        """
+        Return data in cps.csv.gz as a Pandas DataFrame.
+        """
+        fname = os.path.join(Records.CUR_PATH, 'cps.csv.gz')
+        if os.path.isfile(fname):
+            cpsdf = pd.read_csv(fname)
+        else:
+            # cannot call read_egg_ function in unit tests
+            cpsdf = read_egg_csv(fname)  # pragma: no cover
+        return cpsdf
 
     # ----- begin private methods of Records class -----
 
-    def _blowup(self, year):
+    def _extrapolate(self, year):
         """
         Apply to variables the grow factors for specified calendar year.
         """
@@ -318,6 +330,8 @@ class Records(object):
         self.e00200 *= AWAGE
         self.e00200p *= AWAGE
         self.e00200s *= AWAGE
+        self.pencon_p *= AWAGE
+        self.pencon_s *= AWAGE
         self.e00300 *= AINTS
         self.e00400 *= AINTS
         self.e00600 *= ADIVS
@@ -416,12 +430,12 @@ class Records(object):
         Specifies exact array depending on boolean value of exact_calcs.
         """
         # pylint: disable=too-many-statements,too-many-branches
-        if Records.INTEGER_VARS is None:
+        if Records.INTEGER_VARS == set():
             Records.read_var_info()
         # read specified data
         if isinstance(data, pd.DataFrame):
             taxdf = data
-        elif isinstance(data, six.string_types):
+        elif isinstance(data, str):
             if os.path.isfile(data):
                 taxdf = pd.read_csv(data)
             else:
@@ -501,7 +515,7 @@ class Records(object):
             return
         if isinstance(weights, pd.DataFrame):
             WT = weights
-        elif isinstance(weights, six.string_types):
+        elif isinstance(weights, str):
             weights_path = os.path.join(Records.CUR_PATH, weights)
             if os.path.isfile(weights_path):
                 WT = pd.read_csv(weights_path)
@@ -524,7 +538,7 @@ class Records(object):
         if ratios is None:
             setattr(self, 'ADJ', pd.DataFrame({'nothing': []}))
             return
-        if isinstance(ratios, six.string_types):
+        if isinstance(ratios, str):
             ratios_path = os.path.join(Records.CUR_PATH, ratios)
             if os.path.isfile(ratios_path):
                 ADJ = pd.read_csv(ratios_path,

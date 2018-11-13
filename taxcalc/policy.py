@@ -5,17 +5,15 @@ Tax-Calculator federal tax policy Policy class.
 # pycodestyle policy.py
 # pylint --disable=locally-disabled policy.py
 
-from __future__ import print_function
-import six
 import numpy as np
-from taxcalc.parameters import ParametersBase
+from taxcalc.parameters import Parameters
 from taxcalc.growfactors import GrowFactors
 from taxcalc.growdiff import GrowDiff
 
 
-class Policy(ParametersBase):
+class Policy(Parameters):
     """
-    Policy is a subclass of the abstract ParametersBase class, and
+    Policy is a subclass of the abstract Parameters class, and
     therefore, inherits its methods (none of which are shown here).
 
     Constructor for the federal tax policy class.
@@ -25,35 +23,25 @@ class Policy(ParametersBase):
     gfactors: GrowFactors class instance
         containing price inflation rates and wage growth rates
 
-    start_year: integer
-        first calendar year for historical policy parameters.
-
-    num_years: integer
-        number of calendar years for which to specify policy parameter
-        values beginning with start_year.
-
     Raises
     ------
     ValueError:
-        if gfactors is not a GrowFactors class instance.
-        if start_year is less than JSON_START_YEAR.
-        if num_years is less than one.
+        if gfactors is not a GrowFactors class instance or None.
 
     Returns
     -------
     class instance: Policy
     """
 
-    DEFAULTS_FILENAME = 'current_law_policy.json'
+    DEFAULTS_FILENAME = 'policy_current_law.json'
     JSON_START_YEAR = 2013  # remains the same unless earlier data added
     LAST_KNOWN_YEAR = 2017  # last year for which indexed param vals are known
-    LAST_BUDGET_YEAR = 2027  # increases by one every calendar year
+    # should increase LAST_KNOWN_YEAR by one every calendar year
+    LAST_BUDGET_YEAR = 2027  # last extrapolation year
+    # should increase LAST_BUDGET_YEAR by one every calendar year
     DEFAULT_NUM_YEARS = LAST_BUDGET_YEAR - JSON_START_YEAR + 1
 
-    def __init__(self,
-                 gfactors=None,
-                 start_year=JSON_START_YEAR,
-                 num_years=DEFAULT_NUM_YEARS):
+    def __init__(self, gfactors=None):
         super(Policy, self).__init__()
 
         if gfactors is None:
@@ -63,21 +51,15 @@ class Policy(ParametersBase):
         else:
             raise ValueError('gfactors is not None or a GrowFactors instance')
 
-        # read default parameters
+        # read default parameters and initialize
         self._vals = self._params_dict_from_json_file()
-
-        if start_year < Policy.JSON_START_YEAR:
-            raise ValueError('start_year cannot be less than JSON_START_YEAR')
-        if num_years < 1:
-            raise ValueError('num_years cannot be less than one')
-
-        syr = start_year
-        lyr = start_year + num_years - 1
+        syr = Policy.JSON_START_YEAR
+        lyr = Policy.LAST_BUDGET_YEAR
+        nyrs = Policy.DEFAULT_NUM_YEARS
         self._inflation_rates = self._gfactors.price_inflation_rates(syr, lyr)
-        self._apply_clp_cpi_offset(self._vals['_cpi_offset'], num_years)
+        self._apply_clp_cpi_offset(self._vals['_cpi_offset'], nyrs)
         self._wage_growth_rates = self._gfactors.wage_growth_rates(syr, lyr)
-
-        self.initialize(start_year, num_years)
+        self.initialize(syr, nyrs)
 
         self.parameter_warnings = ''
         self.parameter_errors = ''
@@ -257,7 +239,7 @@ class Policy(ParametersBase):
         return a JSON-equivalent dictionary containing constructed array
         parameters and containing no parameters with suffixes, odict.
         """
-
+        # pylint: disable=too-many-statements
         # define no_suffix function used only in this method
         def no_suffix(idict):
             """
@@ -404,7 +386,7 @@ class Policy(ParametersBase):
         for idx in range(0, self.num_years):
             infrate = round(self._inflation_rates[idx] + cpi_offset[idx], 6)
             self._inflation_rates[idx] = infrate
-        # revert CPI-indexed parameter values to current_law_policy.json values
+        # revert CPI-indexed parameter values to policy_current_law.json values
         for name in self._vals.keys():
             if self._vals[name]['cpi_inflated']:
                 setattr(self, name, self._vals[name]['value'])
@@ -500,13 +482,11 @@ class Policy(ParametersBase):
     def _validate_parameter_values(self, parameters_set):
         """
         Check values of parameters in specified parameter_set using
-        range information from the current_law_policy.json file.
+        range information from the policy_current_law.json file.
         """
         # pylint: disable=too-many-locals
         # pylint: disable=too-many-branches
         # pylint: disable=too-many-nested-blocks
-        rounding_error = 100.0
-        # above handles non-rounding of inflation-indexed parameter values
         parameters = sorted(parameters_set)
         syr = Policy.JSON_START_YEAR
         for pname in parameters:
@@ -514,18 +494,8 @@ class Policy(ParametersBase):
                 continue  # *_cpi parameter values validated elsewhere
             pvalue = getattr(self, pname)
             for vop, vval in self._vals[pname]['range'].items():
-                if isinstance(vval, six.string_types):
-                    if vval == 'default':
-                        vvalue = Policy._default_value(pname)
-                        if vop == 'min':
-                            vvalue -= rounding_error
-                        # the follow branch can never be reached, so it
-                        # is commented out because it can never be tested
-                        # (see test_range_infomation in test_policy.py)
-                        # --> elif vop == 'max':
-                        # -->    vvalue += rounding_error
-                    else:
-                        vvalue = getattr(self, vval)
+                if isinstance(vval, str):
+                    vvalue = getattr(self, vval)
                 else:
                     vvalue = np.full(pvalue.shape, vval)
                 assert pvalue.shape == vvalue.shape
@@ -569,38 +539,3 @@ class Policy(ParametersBase):
                                                        vvalue[idx]) + '\n'
                             )
         del parameters
-
-    @staticmethod
-    def _default_value(pname):
-        """
-        Return "default" values for specified parameter's warning logic.
-
-        The "default" values are indexed 2013 values for each year 2013+.
-        Only if users of PUF data try to specify a lower value than these
-        "default" values will they get a warning message.  This is all
-        necessary because, at the moment, PUF data do not contain positive
-        itemizable expense amounts for non-itemizers, which means lowering
-        the standard deduction parameters below their indexed 2013 value
-        will produce unexpected results.
-        """
-        assert pname == '_STD' or pname == '_STD_Dep'
-        clp = Policy()
-        irates = clp.inflation_rates()
-        if pname == '_STD':
-            dval = getattr(clp, '_STD')[0]
-        elif pname == '_STD_Dep':
-            dval = getattr(clp, '_STD_Dep')[0]
-        dvalues = list()
-        dvalues.append(dval.round())
-        for year in range(clp.start_year, clp.end_year):
-            inflation_factor = 1.0 + irates[year - clp.start_year]
-            dval *= inflation_factor  # value for year+1
-            dvalues.append(dval.round())
-        if pname == '_STD':
-            np_dvalues = np.vstack(dvalues)
-        elif pname == '_STD_Dep':
-            np_dvalues = np.asarray(dvalues)
-        del clp
-        del irates
-        del dvalues
-        return np_dvalues

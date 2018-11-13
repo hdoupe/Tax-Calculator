@@ -15,9 +15,7 @@ Read Tax-Calculator/TESTING.md for details.
 # pycodestyle test_pufcsv.py
 # pylint --disable=locally-disabled test_pufcsv.py
 
-from __future__ import print_function
 import os
-import sys
 import json
 import pytest
 import numpy as np
@@ -49,7 +47,7 @@ def test_agg(tests_path, puf_fullsample):
     adt = calc.diagnostic_table(nyrs)
     taxes_fullsample = adt.loc["Combined Liability ($b)"]
     # convert adt results to a string with a trailing EOL character
-    adtstr = adt.to_string() + '\n'
+    adtstr = adt.to_string(float_format='%8.1f') + '\n'
     # create actual and expected lists of diagnostic table lines
     actual = adtstr.splitlines(True)
     aggres_path = os.path.join(tests_path, 'pufcsv_agg_expect.txt')
@@ -58,11 +56,7 @@ def test_agg(tests_path, puf_fullsample):
     expected_results = txt.rstrip('\n\t ') + '\n'  # cleanup end of file txt
     expect = expected_results.splitlines(True)
     # ensure actual and expect lines have differences no more than small value
-    if sys.version_info.major == 2:
-        small = 0.0  # tighter test for Python 2.7
-    else:
-        small = 0.1  # looser test for Python 3.6
-    diffs = nonsmall_diffs(actual, expect, small)
+    diffs = nonsmall_diffs(actual, expect)
     if diffs:
         new_filename = '{}{}'.format(aggres_path[:-10], 'actual.txt')
         with open(new_filename, 'w') as new_file:
@@ -337,7 +331,7 @@ def test_puf_availability(tests_path, puf_path):
         if 'taxdata_puf' in vdict.get('availability', ''):
             recvars.add(vname)
     # check that pufvars and recvars sets are the same
-    assert (pufvars - recvars) == set()
+    assert (pufvars - recvars) == set(['filer'])
     assert (recvars - pufvars) == set()
 
 

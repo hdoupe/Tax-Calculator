@@ -5,12 +5,10 @@ Tax-Calculator Input-Output class.
 # pycodestyle taxcalcio.py
 # pylint --disable=locally-disabled taxcalcio.py
 
-from __future__ import print_function
 import os
 import gc
 import copy
 import sqlite3
-import six
 import numpy as np
 import pandas as pd
 from taxcalc.policy import Policy
@@ -19,14 +17,14 @@ from taxcalc.consumption import Consumption
 from taxcalc.behavior import Behavior
 from taxcalc.growdiff import GrowDiff
 from taxcalc.growfactors import GrowFactors
-from taxcalc.calculate import Calculator
+from taxcalc.calculator import Calculator
 from taxcalc.growmodel import GrowModel
 from taxcalc.utils import (delete_file, write_graph_file,
                            add_quantile_table_row_variable,
                            unweighted_sum, weighted_sum)
 
 
-class TaxCalcIO(object):
+class TaxCalcIO():
     """
     Constructor for the Tax-Calculator Input-Output class.
 
@@ -76,7 +74,7 @@ class TaxCalcIO(object):
         inp = 'x'
         self.puf_input_data = False
         self.cps_input_data = False
-        if isinstance(input_data, six.string_types):
+        if isinstance(input_data, str):
             # remove any leading directory path from INPUT filename
             fname = os.path.basename(input_data)
             # check if fname ends with ".csv"
@@ -100,7 +98,7 @@ class TaxCalcIO(object):
         bas = '-x'
         if baseline is None:
             bas = '-#'
-        elif isinstance(baseline, six.string_types):
+        elif isinstance(baseline, str):
             # remove any leading directory path from BASELINE filename
             fname = os.path.basename(baseline)
             # check if fname ends with ".json"
@@ -121,7 +119,7 @@ class TaxCalcIO(object):
         if reform is None:
             self.specified_reform = False
             ref = '-#'
-        elif isinstance(reform, six.string_types):
+        elif isinstance(reform, str):
             self.specified_reform = True
             # split any compound reform into list of simple reforms
             refnames = list()
@@ -154,7 +152,7 @@ class TaxCalcIO(object):
         asm = '-x'
         if assump is None:
             asm = '-#'
-        elif isinstance(assump, six.string_types):
+        elif isinstance(assump, str):
             # remove any leading directory path from ASSUMP filename
             fname = os.path.basename(assump)
             # check if fname ends with ".json"
@@ -173,7 +171,7 @@ class TaxCalcIO(object):
         # check name and existence of OUTDIR
         if outdir is None:
             valid_outdir = True
-        elif isinstance(outdir, six.string_types):
+        elif isinstance(outdir, str):
             # check existence of OUTDIR
             if os.path.isdir(outdir):
                 valid_outdir = True
@@ -382,7 +380,7 @@ class TaxCalcIO(object):
         contains the contents of the tcdumpvars file in the current directory.
         Also, builds self.errmsg if any custom variables are not valid.
         """
-        assert isinstance(tcdumpvars_str, six.string_types)
+        assert isinstance(tcdumpvars_str, str)
         self.errmsg = ''
         # change some common delimiter characters into spaces
         dump_vars_str = tcdumpvars_str.replace(',', ' ')
@@ -421,7 +419,6 @@ class TaxCalcIO(object):
     def analyze(self, writing_output_file=False,
                 output_tables=False,
                 output_graphs=False,
-                output_ceeu=False,
                 dump_varset=None,
                 output_dump=False,
                 output_sqldb=False):
@@ -441,10 +438,6 @@ class TaxCalcIO(object):
            whether or not to generate and write HTML graphs of average
            and marginal tax rates by income percentile
 
-        output_ceeu: boolean
-           whether or not to calculate and write to stdout standard
-           certainty-equivalent expected-utility statistics
-
         dump_varset: set
            custom set of variables to include in dump and sqldb output;
            None implies include all variables in dump and sqldb output
@@ -461,7 +454,7 @@ class TaxCalcIO(object):
         -------
         Nothing
         """
-        # pylint: disable=too-many-arguments,too-many-branches
+        # pylint: disable=too-many-arguments,too-many-branches,too-many-locals
         if self.puf_input_data and self.calc.reform_warnings:
             warn = 'PARAMETER VALUE WARNING(S):  {}\n{}{}'  # pragma: no cover
             print(  # pragma: no cover
@@ -484,27 +477,6 @@ class TaxCalcIO(object):
             # definitely do not need marginal tax rates
             mtr_paytax = None
             mtr_inctax = None
-        # optionally conduct normative welfare analysis
-        if output_ceeu:
-            if self.behavior_has_any_response:
-                ceeu_results = 'SKIP --ceeu output because baseline and '
-                ceeu_results += 'reform cannot be sensibly compared\n '
-                ceeu_results += '                  '
-                ceeu_results += 'when specifying "behavior" with --assump '
-                ceeu_results += 'option'
-            elif self.calc.total_weight() <= 0.:
-                ceeu_results = 'SKIP --ceeu output because '
-                ceeu_results += 'sum of weights is not positive'
-            else:
-                self.calc_base.calc_all()
-                calc_base_calculated = True
-                cedict = self.calc_base.ce_aftertax_income(
-                    self.calc,
-                    custom_params=None,
-                    require_no_agg_tax_change=False)
-                ceeu_results = TaxCalcIO.ceeu_output(cedict)
-        else:
-            ceeu_results = None
         # extract output if writing_output_file
         if writing_output_file:
             self.write_output_file(output_dump, dump_varset,
@@ -525,9 +497,6 @@ class TaxCalcIO(object):
                 self.calc_base.calc_all()
                 calc_base_calculated = True
             self.write_graph_files()
-        # optionally write --ceeu output to stdout
-        if ceeu_results:
-            print(ceeu_results)
 
     def write_output_file(self, output_dump, dump_varset,
                           mtr_paytax, mtr_inctax):
@@ -737,47 +706,6 @@ class TaxCalcIO(object):
         odf = pd.DataFrame(data=odict, columns=varlist)
         return odf
 
-    @staticmethod
-    def ceeu_output(cedict):
-        """
-        Extract --ceeu output and return as text string.
-        """
-        text = ('Aggregate {} Pre-Tax Expanded Income and '
-                'Tax Revenue ($billion)\n')
-        txt = text.format(cedict['year'])
-        txt += '           baseline     reform   difference\n'
-        fmt = '{} {:12.3f} {:10.3f} {:12.3f}\n'
-        txt += fmt.format('income', cedict['inc1'], cedict['inc2'],
-                          cedict['inc2'] - cedict['inc1'])
-        alltaxdiff = cedict['tax2'] - cedict['tax1']
-        txt += fmt.format('alltax', cedict['tax1'], cedict['tax2'],
-                          alltaxdiff)
-        txt += ('Certainty Equivalent of Expected Utility of '
-                'After-Tax Expanded Income ($)\n')
-        txt += ('(assuming consumption equals '
-                'after-tax expanded income)\n')
-        txt += 'crra       baseline     reform     pctdiff\n'
-        fmt = '{} {:17.2f} {:10.2f} {:11.2f}\n'
-        for crra, ceeu1, ceeu2 in zip(cedict['crra'],
-                                      cedict['ceeu1'],
-                                      cedict['ceeu2']):
-            txt += fmt.format(crra, ceeu1, ceeu2,
-                              100.0 * (ceeu2 - ceeu1) / ceeu1)
-        if abs(alltaxdiff) >= 0.0005:
-            txt += ('WARN: baseline and reform cannot be '
-                    'sensibly compared\n')
-            text = ('      because "alltax difference" is '
-                    '{:.3f} which is not zero\n')
-            txt += text.format(alltaxdiff)
-            txt += ('FIX: adjust _LST or another reform policy parameter '
-                    'to bracket\n')
-            txt += ('     "alltax difference" equals zero and '
-                    'then interpolate')
-        else:
-            txt += 'NOTE: baseline and reform can be sensibly compared\n'
-            txt += '      because "alltax difference" is essentially zero'
-        return txt
-
     def dump_output(self, dump_varset, mtr_inctax, mtr_paytax):
         """
         Extract dump output and return it as Pandas DataFrame.
@@ -810,7 +738,6 @@ class TaxCalcIO(object):
                            writing_output_file=False,
                            output_tables=False,
                            output_graphs=False,
-                           output_ceeu=False,
                            dump_varset=None,
                            output_dump=False,
                            output_sqldb=False):
@@ -845,7 +772,6 @@ class TaxCalcIO(object):
                                                 writing_output_file,
                                                 output_tables,
                                                 output_graphs,
-                                                output_ceeu,
                                                 dump_varset,
                                                 output_dump,
                                                 output_sqldb)
@@ -858,7 +784,6 @@ class TaxCalcIO(object):
                         writing_output_file,
                         output_tables,
                         output_graphs,
-                        output_ceeu,
                         dump_varset,
                         output_dump,
                         output_sqldb):
@@ -897,7 +822,6 @@ class TaxCalcIO(object):
             tcio.analyze(writing_output_file=writing_output_file,
                          output_tables=output_tables,
                          output_graphs=output_graphs,
-                         output_ceeu=output_ceeu,
                          dump_varset=dump_varset,
                          output_dump=output_dump,
                          output_sqldb=output_sqldb)

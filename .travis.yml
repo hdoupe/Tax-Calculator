@@ -3,7 +3,6 @@ sudo: false
 language: python
 python:
   - "3.6"
-  - "2.7"
 
 install:
   # Install conda
@@ -16,15 +15,15 @@ install:
   - source activate taxcalc-dev
   - conda env update -f environment.yml
   - if [ $TRAVIS_EVENT_TYPE == 'cron' ]; then conda remove numba; fi
+  - pip install pyyaml
   - pip install pytest-pep8
   - pip install coverage
   - pip install codecov
   - python setup.py install
 
-
 # command to run tests
 script:
-  - python -c "import taxcalc"; coverage run -m py.test -v -m "not requires_pufcsv and not pre_release and not local" --pep8
+  - python -c "import taxcalc"; coverage run -m pytest -v -m "not requires_pufcsv and not pre_release and not local" --pep8
 
 after_success:
   - codecov

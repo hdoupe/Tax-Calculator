@@ -1,5 +1,5 @@
 """
-Tests of the compatible_data fields in the current_law_policy.json file.
+Tests of the compatible_data fields in the policy_current_law.json file.
 
 In order to tap into the parallelization capabilities of py.test, this module
 leans heavily on py.tests's `parametrization` method. Once you do so, the
@@ -9,11 +9,9 @@ plug-in pytest-xdist is able to run all parametrized functions in parallel
 # pycodestyle test_compatible_data.py
 # pylint --disable=locally-disabled test_compatible_data.py
 
-from __future__ import print_function
 import copy
 import pytest
 import numpy as np
-import six
 from taxcalc import Policy, Records, Calculator  # pylint: disable=import-error
 
 
@@ -27,7 +25,7 @@ def fixture_allparams():
 
 def test_compatible_data_presence(allparams):
     """
-    Test that every parameter in the current_law_policy.json file
+    Test that every parameter in the policy_current_law.json file
     has a compatible_data field that is a dictionary.
     """
     compatible_data_keys_set = set(['puf', 'cps'])
@@ -223,7 +221,7 @@ def test_compatible_data(cps_subsample, puf_subsample,
                          allparams, reform_xx,
                          tc_objs, allparams_batch):
     """
-    Test that the compatible_data attribute in current_law_policy.json
+    Test that the compatible_data attribute in policy_current_law.json
     is accurate by implementing the min and max values of each parameter
     as reforms and ensuring that revenue differs from baseline when for
     at least one of these reforms when using datasets marked compatible
@@ -248,23 +246,23 @@ def test_compatible_data(cps_subsample, puf_subsample,
         param = allparams_batch[pname]
         max_listed = param['range']['max']
         # handle links to other params or self
-        if isinstance(max_listed, six.string_types):
+        if isinstance(max_listed, str):
             if max_listed == 'default':
                 max_val = param['value'][-1]
             else:
                 max_val = allparams[max_listed]['value'][0]
-        if not isinstance(max_listed, six.string_types):
+        if not isinstance(max_listed, str):
             if isinstance(param['value'][0], list):
                 max_val = [max_listed] * len(param['value'][0])
             else:
                 max_val = max_listed
         min_listed = param['range']['min']
-        if isinstance(min_listed, six.string_types):
+        if isinstance(min_listed, str):
             if min_listed == 'default':
                 min_val = param['value'][-1]
             else:
                 min_val = allparams[min_listed]['value'][0]
-        if not isinstance(min_listed, six.string_types):
+        if not isinstance(min_listed, str):
             if isinstance(param['value'][0], list):
                 min_val = [min_listed] * len(param['value'][0])
             else:

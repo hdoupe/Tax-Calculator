@@ -8,21 +8,20 @@ build:
 
 requirements:
   build:
-    - python
-    - numpy >=1.12.1
-    - pandas >=0.22.0
+    - python=3.6
+    - "numpy>=1.13"
+    - "pandas>=0.22"
+    - "bokeh>=0.13"
     - numba
     - toolz
-    - six
-    - bokeh >=0.12.3
+
   run:
-    - python
-    - numpy >=1.12.1
-    - pandas >=0.22.0
+    - python=3.6
+    - "numpy>=1.13"
+    - "pandas>=0.22"
+    - "bokeh>=0.13"
     - numba
     - toolz
-    - six
-    - bokeh >=0.12.3
 
 test:
   commands:
@@ -31,4 +30,4 @@ test:
     - tc --help
 
 about:
-  home: http://www.github.com/OpenSourcePolicyCenter
+  home: https://github.com/open-source-economics/Tax-Calculator
