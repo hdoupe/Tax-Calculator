@@ -19,11 +19,14 @@ tax results.
 import os
 import copy
 import hashlib
+import time
 import numpy as np
 import pandas as pd
+from operator import itemgetter
 from taxcalc import (Policy, Records, Calculator,
                      Consumption, Behavior, GrowFactors, GrowDiff,
                      DIST_TABLE_LABELS, DIFF_TABLE_LABELS,
+                     DIST_TABLE_COLUMNS, DIFF_TABLE_COLUMNS,
                      proportional_change_in_gdp,
                      add_income_table_row_variable,
                      add_quantile_table_row_variable,
@@ -185,7 +188,7 @@ def run_nth_year_taxcalc_model(year_n, start_year,
     """
     # pylint: disable=too-many-arguments,too-many-statements
     # pylint: disable=too-many-locals,too-many-branches
-
+    start_time = time.time()
     # create calc1 and calc2 calculated for year_n
     check_years(year_n, start_year, use_puf_not_cps)
     calc1, calc2 = calculator_objects(year_n, start_year,
