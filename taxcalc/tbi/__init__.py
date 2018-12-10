@@ -11,3 +11,5 @@ from taxcalc.tbi.tbi import (reform_warnings_errors,
                              summary_dist_xdec, summary_diff_xdec,
                              create_dict_table,
                              check_years_return_first_year)
+
+from taxcalc.tbi.inputs import get_defaults
