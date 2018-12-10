@@ -106,7 +106,7 @@ RESULTS_TOTAL_ELAST_ROW_KEY_LABELS = {
 
 
 
-def reform_warnings_errors(user_mods, using_puf):
+def reform_warnings_errors(user_mods, data_source):
     """
     The reform_warnings_errors function assumes user_mods is a dictionary
     returned by the Calculator.read_json_param_objects() function.
@@ -118,6 +118,7 @@ def reform_warnings_errors(user_mods, using_puf):
     Note that non-policy parameters have no warnings, so the 'warnings'
     string for the non-policy parameters is always empty.
     """
+    using_puf = data_source == "PUF"
     rtn_dict = {'policy': {'warnings': '', 'errors': ''},
                 'behavior': {'warnings': '', 'errors': ''},
                 'consumption': {'warnings': '', 'errors': ''},
@@ -174,7 +175,7 @@ def pdf_to_clean_html(pdf):
 
 
 def run_nth_year_taxcalc_model(year_n, start_year,
-                               use_puf_not_cps,
+                               data_source,
                                use_full_sample,
                                user_mods,
                                return_html=True):
@@ -188,6 +189,7 @@ def run_nth_year_taxcalc_model(year_n, start_year,
     """
     # pylint: disable=too-many-arguments,too-many-statements
     # pylint: disable=too-many-locals,too-many-branches
+    use_puf_not_cps = data_source == "PUF"
     start_time = time.time()
     # create calc1 and calc2 calculated for year_n
     check_years(year_n, start_year, use_puf_not_cps)
@@ -249,7 +251,7 @@ def run_nth_year_taxcalc_model(year_n, start_year,
         res = {}
         for id in sres:
             res[id] = [{
-                'year': str(start_year + year_n),
+                'dimension': start_year + year_n,
                 'raw': sres[id].to_json()
             }]
         elapsed_time = time.time() - start_time
@@ -290,11 +292,12 @@ def postprocess(data_to_process):
         return pdf
 
     formatted = {'outputs': [], 'aggr_outputs': []}
-    year_getter = itemgetter('year')
+    year_getter = itemgetter('dimension')
     for id, pdfs in data_to_process.items():
         if id.startswith('aggr'):
             pdfs.sort(key=year_getter)
-            tbl = pd.concat((year_columns(pd.read_json(i['raw']), i['year'])
+            tbl = pd.concat((year_columns(pd.read_json(i['raw']),
+                                          i['dimension'])
                              for i in pdfs), axis='columns')
             tbl.index = pd.Index(RESULTS_TOTAL_ROW_KEY_LABELS[i]
                                  for i in tbl.index)
@@ -310,47 +313,15 @@ def postprocess(data_to_process):
             for i in pdfs:
                 tbl = label_columns(pd.read_json(i['raw']))
                 title = '{} ({})'.format(RESULTS_TABLE_TITLES[id],
-                                         i['year'])
+                                         i['dimension'])
                 formatted['outputs'].append({
                     'tags': RESULTS_TABLE_TAGS[id],
-                    'year': i['year'],
+                    'dimension': i['dimension'],
                     'title': title,
                     'downloadable': [{'filename': title + '.csv',
                                       'text': tbl.to_csv()}],
                     'renderable': pdf_to_clean_html(tbl)
                 })
-    return formatted
-
-
-def postprocess_elast(data_to_process):
-    """
-    Receives results from run_nth_year_gdp_elast_model over N years,
-    formats the results, and combines the aggregate results
-    """
-    def append_year(pdf, year):
-        """
-        append_year embedded function revises all column names in pdf
-        """
-        pdf.columns = [str(year)]
-        return pdf
-
-    formatted = {'outputs': [], 'aggr_outputs': []}
-    year_getter = itemgetter('year')
-    for id, pdfs in data_to_process.items():
-        print(id, pdfs)
-        pdfs.sort(key=year_getter)
-        print(pdfs)
-        tbl = pd.concat((append_year(pd.read_json(i['raw']), i['year'])
-                         for i in pdfs), axis='columns')
-        tbl.index = pd.Index([RESULTS_TOTAL_ELAST_ROW_KEY_LABELS[id]])
-        title = RESULTS_TABLE_ELAST_TITLES[id]
-        formatted['aggr_outputs'].append({
-            'tags': RESULTS_TABLE_TAGS[id],
-            'title': title,
-            'downloadable': [{'filename': title + '.csv',
-                              'text': tbl.to_csv()}],
-            'renderable': pdf_to_clean_html(tbl)
-        })
     return formatted
 
 
