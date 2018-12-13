@@ -11,7 +11,6 @@ with open(pcl_path, 'r') as f:
 
 for param, item in pcl.copy().items():
     values = []
-    curr = {}
     if isinstance(item["value"][0], list):
         for year in range(len(item["value"])):
             for dim1 in range(len(item["value"][0])):
