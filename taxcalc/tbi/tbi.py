@@ -22,13 +22,16 @@ import hashlib
 import numpy as np
 import pandas as pd
 from taxcalc import (Policy, Records, Calculator,
-                     Consumption, Behavior, GrowFactors, GrowDiff,
+                     Consumption, GrowFactors, GrowDiff,
                      DIST_TABLE_LABELS, DIFF_TABLE_LABELS,
                      proportional_change_in_gdp,
                      add_income_table_row_variable,
                      add_quantile_table_row_variable,
                      create_difference_table, create_distribution_table,
                      STANDARD_INCOME_BINS, read_egg_csv)
+
+import behresp
+
 
 AGG_ROW_NAMES = ['ind_tax', 'payroll_tax', 'combined_tax']
 
@@ -79,11 +82,11 @@ def reform_warnings_errors(user_mods, using_puf):
     except ValueError as valerr_msg:
         rtn_dict['policy']['errors'] = valerr_msg.__str__()
     # create Behavior object
-    behv = Behavior()
-    try:
-        behv.update_behavior(user_mods['behavior'])
-    except ValueError as valerr_msg:
-        rtn_dict['behavior']['errors'] = valerr_msg.__str__()
+    # behv = Behavior()
+    # try:
+    #     behv.update_behavior(user_mods['behavior'])
+    # except ValueError as valerr_msg:
+    #     rtn_dict['behavior']['errors'] = valerr_msg.__str__()
     # create Consumption object
     consump = Consumption()
     try:
@@ -112,18 +115,18 @@ def run_nth_year_taxcalc_model(year_n, start_year,
 
     # create calc1 and calc2 calculated for year_n
     check_years(year_n, start_year, use_puf_not_cps)
-    calc1, calc2 = calculator_objects(year_n, start_year,
+    dv1, dv2 = calculator_objects(year_n, start_year,
                                       use_puf_not_cps, use_full_sample,
                                       user_mods,
                                       behavior_allowed=True)
 
     # extract unfuzzed raw results from calc1 and calc2
-    dv1 = calc1.distribution_table_dataframe()
-    dv2 = calc2.distribution_table_dataframe()
+    # dv1 = calc1.distribution_table_dataframe()
+    # dv2 = calc2.distribution_table_dataframe()
 
     # delete calc1 and calc2 now that raw results have been extracted
-    del calc1
-    del calc2
+    # del calc1
+    # del calc2
 
     # construct TaxBrain summary results from raw results
     sres = dict()
@@ -375,25 +378,26 @@ def calculator_objects(year_n, start_year,
                                         gfactors=growfactors_pre)
     policy1 = Policy(gfactors=growfactors_pre)
     calc1 = Calculator(policy=policy1, records=recs1, consumption=consump)
-    while calc1.current_year < start_year:
-        calc1.increment_year()
-    calc1.calc_all()
-    assert calc1.current_year == start_year
+    calc1.advance_to_year(start_year)
+    # while calc1.current_year < start_year:
+    #     calc1.increment_year()
+    # calc1.calc_all()
+    # assert calc1.current_year == start_year
 
     # specify Behavior instance
-    behv = Behavior()
-    behavior_assumps = user_mods['behavior']
-    behv.update_behavior(behavior_assumps)
+    # behv = Behavior()
+    # behavior_assumps = user_mods['behavior']
+    # behv.update_behavior(behavior_assumps)
 
-    # always prevent both behavioral response and growdiff response
-    if behv.has_any_response() and growdiff_response.has_any_response():
-        msg = 'BOTH behavior AND growdiff_response HAVE RESPONSE'
-        raise ValueError(msg)
+    # # always prevent both behavioral response and growdiff response
+    # if behv.has_any_response() and growdiff_response.has_any_response():
+    #     msg = 'BOTH behavior AND growdiff_response HAVE RESPONSE'
+    #     raise ValueError(msg)
 
-    # optionally prevent behavioral response
-    if behv.has_any_response() and not behavior_allowed:
-        msg = 'A behavior RESPONSE IS NOT ALLOWED'
-        raise ValueError(msg)
+    # # optionally prevent behavioral response
+    # if behv.has_any_response() and not behavior_allowed:
+    #     msg = 'A behavior RESPONSE IS NOT ALLOWED'
+    #     raise ValueError(msg)
 
     # create post-reform Calculator instance
     if use_puf_not_cps:
@@ -406,10 +410,11 @@ def calculator_objects(year_n, start_year,
     policy_reform = user_mods['policy']
     policy2.implement_reform(policy_reform)
     calc2 = Calculator(policy=policy2, records=recs2,
-                       consumption=consump, behavior=behv)
-    while calc2.current_year < start_year:
-        calc2.increment_year()
-    assert calc2.current_year == start_year
+                       consumption=consump)#, behavior=behv)
+    calc2.advance_to_year(start_year)
+    # while calc2.current_year < start_year:
+    #     calc2.increment_year()
+    # assert calc2.current_year == start_year
 
     # delete objects now embedded in calc1 and calc2
     del sample
@@ -419,7 +424,7 @@ def calculator_objects(year_n, start_year,
     del growdiff_response
     del growfactors_pre
     del growfactors_post
-    del behv
+    # del behv
     del recs1
     del recs2
     del policy1
@@ -429,14 +434,15 @@ def calculator_objects(year_n, start_year,
     for _ in range(0, year_n):
         calc1.increment_year()
         calc2.increment_year()
-    calc1.calc_all()
-    if calc2.behavior_has_response():
-        calc2 = Behavior.response(calc1, calc2)
-    else:
-        calc2.calc_all()
+    # calc1.calc_all()
+    # if calc2.behavior_has_response():
+    #     calc2 = Behavior.response(calc1, calc2)
+    # else:
+    #     calc2.calc_all()
+    table1, table2 = behresp.response(calc1, calc2, user_mods["behavior"])
 
     # return calculated Calculator objects
-    return (calc1, calc2)
+    return (table1, table2)
 
 
 def calculators(year_n, start_year,

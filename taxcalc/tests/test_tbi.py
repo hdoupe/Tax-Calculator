@@ -269,7 +269,7 @@ def test_behavioral_response(use_puf_not_cps, puf_subsample, cps_fullsample):
         'use_full_sample': False,
         'user_mods': {
             'policy': params['policy'],
-            'behavior': params['behavior'],
+            'behavior': {2016: {'BE_sub': 0.25}},
             'growdiff_baseline': params['growdiff_baseline'],
             'growdiff_response': params['growdiff_response'],
             'consumption': params['consumption'],
