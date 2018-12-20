@@ -15,6 +15,11 @@ def get_defaults(start_year, **kwargs):
 
 def parse_user_inputs(params, jsonstrs, errors_warnings, data_source,
                       use_full_sample, start_year):
+    """
+    I've only sketched this code out. It has been run before, but only as a
+    part of the taxcalcstyle comp package:
+    https://github.com/comp-org/comp/blob/0.1.0rc7/webapp/apps/contrib/taxcalcstyle/parser.py
+    """
     policy_inputs = params["policy"]
     behavior_inputs = params["behavior"]
     policy_inputs = {"policy": policy_inputs}
