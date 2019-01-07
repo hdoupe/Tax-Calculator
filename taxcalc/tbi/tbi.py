@@ -23,6 +23,7 @@ import time
 import numpy as np
 import pandas as pd
 from operator import itemgetter
+from collections import defaultdict
 from taxcalc import (Policy, Records, Calculator,
                      Consumption, Behavior, GrowFactors, GrowDiff,
                      DIST_TABLE_LABELS, DIFF_TABLE_LABELS,
@@ -174,7 +175,35 @@ def pdf_to_clean_html(pdf):
             .replace(' style="text-align: right;"', ''))
 
 
-def run_nth_year_taxcalc_model(year_n, start_year,
+def run_tbi_model(start_year, data_source, use_full_sample, user_mods):
+    """
+    Main function for running the Drop-Q model.
+    """
+    results = []
+    if use_full_sample:
+        num_years = 10
+    else:
+        num_years = 1
+    for i in range(0, num_years):
+        results.append(
+            run_nth_year_taxcalc_model(
+                year_n=i,
+                data_source=data_source,
+                start_year=start_year,
+                use_full_sample=use_full_sample,
+                user_mods=user_mods,
+            )
+        )
+    all_to_process = defaultdict(list)
+    for result in results:
+        for key, value in result.items():
+            all_to_process[key] += value
+    results = postprocess(all_to_process)
+    return results
+
+
+def run_nth_year_taxcalc_model(year_n,
+                               start_year,
                                data_source,
                                use_full_sample,
                                user_mods,
@@ -189,6 +218,7 @@ def run_nth_year_taxcalc_model(year_n, start_year,
     """
     # pylint: disable=too-many-arguments,too-many-statements
     # pylint: disable=too-many-locals,too-many-branches
+
     use_puf_not_cps = data_source == "PUF"
     start_time = time.time()
     # create calc1 and calc2 calculated for year_n

@@ -12,4 +12,4 @@ from taxcalc.tbi.tbi import (reform_warnings_errors,
                              create_dict_table,
                              check_years_return_first_year)
 
-from taxcalc.tbi.inputs import get_defaults
+from taxcalc.tbi.inputs import get_defaults, parse_user_inputs

@@ -1,14 +1,13 @@
-import msgpack, json
+import json
+from collections import defaultdict
 
-import numpy as np
-
-from taxcalc import Policy, Behavior
+import taxcalc
 
 def get_defaults(start_year, **kwargs):
-    pol = Policy()
+    pol = taxcalc.Policy()
     pol.set_year(start_year)
     pol_mdata = pol.metadata()
-    behv_mdata = Behavior()._vals
+    behv_mdata = taxcalc.Behavior()._vals
 
     return {"policy": pol_mdata, "behavior": behv_mdata}
 
