@@ -69,65 +69,71 @@ def policy_param_text(pname, param):
     """
     # pylint: disable=too-many-statements,too-many-branches,len-as-condition
     sec1 = param['section_1']
+    txt = ""
     if len(sec1) > 0:
-        txt = '<p><b>{} &mdash; {}</b>'.format(sec1, param['section_2'])
+        txt += '<li><b>{} &mdash; {}</b>'.format(sec1, param['section_2'])
     else:
-        txt = '<p><b>{} &mdash; {}</b>'.format('Other Parameters',
+        txt += '<li><b>{} &mdash; {}</b>'.format('Other Parameters',
                                                'Not in TaxBrain GUI')
-    txt += '<br><i>tc Name:</i> {}'.format(pname)
+    txt += "<ul>"
+    txt += '<li><i>tc Name:</i> {}</li>'.format(pname)
     if len(sec1) > 0:
-        txt += '<br><i>TB Name:</i> {}'.format(param['long_name'])
+        txt += '<li><i>TB Name:</i> {}</li>'.format(param['long_name'])
     else:
-        txt += '<br><i>Long Name:</i> {}'.format(param['long_name'])
-    txt += '<br><i>Description:</i> {}'.format(param['description'])
+        txt += '<li><i>Long Name:</i> {}</li>'.format(param['long_name'])
+    txt += '<li><i>Description:</i> {}</li>'.format(param['description'])
     if len(param['notes']) > 0:
-        txt += '<br><i>Notes:</i> {}'.format(param['notes'])
-    txt += '<br><i>Has An Effect When Using:</i>'
-    txt += '&nbsp;&nbsp; <i>PUF data:</i> '
+        txt += '<li><i>Notes:</i> {}</li>'.format(param['notes'])
+    txt += '<li><i>Has An Effect When Using:</i>'
+    txt += '<ul><li><i>PUF data:</i> '
     if param['compatible_data']['puf']:
-        txt += 'True'
+        txt += 'True</li>'
     else:
-        txt += 'False'
-    txt += '&nbsp;&nbsp; <i>CPS data:</i> '
+        txt += 'False</li>'
+    txt += '<li><i>CPS data:</i> '
     if param['compatible_data']['cps']:
-        txt += 'True'
+        txt += 'True</li>'
     else:
-        txt += 'False'
-    txt += '<br><i>Can Be Inflation Indexed:</i> '
+        txt += 'False</li>'
+    txt += "</ul></li>"
+    txt += '<li><i>Can Be Inflation Indexed:</i> '
     if param['cpi_inflatable']:
-        txt += 'True'
+        txt += 'True</li>'
     else:
-        txt += 'False'
-    txt += '&nbsp;&nbsp;&nbsp;&nbsp; <i>Is Inflation Indexed:</i> '
+        txt += 'False</li>'
+    txt += '<li><i>Is Inflation Indexed:</i> '
     if param['cpi_inflated']:
-        txt += 'True'
+        txt += 'True</li>'
     else:
-        txt += 'False'
-    txt += '<br><i>Integer Value:</i> '
+        txt += 'False</li>'
+    txt += '<li>Type: '
+    txt += '<ul><li><i>Integer Value:</i> '
     if param['integer_value']:
-        txt += 'True'
+        txt += 'True</li>'
     else:
-        txt += 'False'
-    txt += '&nbsp;&nbsp;&nbsp;&nbsp; <i>Boolean Value:</i> '
+        txt += 'False</li>'
+    txt += '<li><i>Boolean Value:</i> '
     if param['boolean_value']:
-        txt += 'True'
+        txt += 'True</li>'
     else:
-        txt += 'False'
-    txt += '<br><i>Known Values:</i>'
+        txt += 'False</li>'
+    txt += "</ul>"
+    txt += '<li><i>Known Values:</i><ul>'
     if len(param['col_label']) > 0:
         cols = ', '.join(param['col_label'])
-        txt += '<br>&nbsp;&nbsp; for: [{}]'.format(cols)
+        txt += '<li>for: [{}]</li>'.format(cols)
     for cyr, val in zip(param['row_label'], param['value']):
         final_cyr = cyr
         final_val = val
-        txt += '<br>{}: {}'.format(cyr, val)
+        txt += '<li>{}: {}</li>'.format(cyr, val)
     if not param['cpi_inflated']:
         fcyr = int(final_cyr)
         if fcyr < Policy.LAST_KNOWN_YEAR:
             # extrapolate final_val thru Policy.LAST_KNOWN_YEAR if not indexed
             for cyr in range(fcyr + 1, Policy.LAST_KNOWN_YEAR + 1):
-                txt += '<br>{}: {}'.format(cyr, final_val)
-    txt += '<br><i>Valid Range:</i>'
+                txt += '<li>{}: {}</li>'.format(cyr, final_val)
+    txt += '</ul></li>'
+    txt += '<li><i>Valid Range:</i><ul>'
     if param['range']['min'] == 'default':
         minval = 'known_value'
     else:
@@ -136,10 +142,11 @@ def policy_param_text(pname, param):
         maxval = 'known_value'
     else:
         maxval = param['range']['max']
-    txt += ' min = {} and max = {}'.format(minval, maxval)
-    txt += '<br><i>Out-of-Range Action:</i> {}'.format(
+    txt += '<li> min = {} and max = {} </li>'.format(minval, maxval)
+    txt += '<li><i>Out-of-Range Action:</i> {}</li>'.format(
         param['out_of_range_action'])
-    txt += '</p>'
+    txt += '</ul></li>'
+    txt += '</ul></li>'
     return txt
 
 
@@ -173,11 +180,12 @@ def policy_params(path, text):
         split_list = sec1_sec2.split(concat_str)
         sec1 = split_list[0]
         sec2 = split_list[1]
-        ptext = ''
+        ptext = '<ul>'
         for pname in params:
             param = params[pname]
             if sec1 == param['section_1'] and sec2 == param['section_2']:
                 ptext += policy_param_text(pname, param)
+        ptext += '</ul>'
         # integrate parameter text into text
         old = '<!-- {} -->'.format(sec1_sec2)
         text = text.replace(old, ptext)
