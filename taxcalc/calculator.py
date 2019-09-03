@@ -93,10 +93,11 @@ class Calculator():
     def __init__(self, policy=None, records=None, verbose=False,
                  sync_years=True, consumption=None):
         # pylint: disable=too-many-arguments,too-many-branches
-        if isinstance(policy, Policy):
-            self.__policy = copy.deepcopy(policy)
-        else:
-            raise ValueError('must specify policy as a Policy object')
+        # if isinstance(policy, Policy):
+        #    self.__policy = copy.deepcopy(policy)
+        # else:
+        #    raise ValueError('must specify policy as a Policy object')
+        self.__policy = copy.deepcopy(policy)
         if isinstance(records, Records):
             self.__records = copy.deepcopy(records)
         else:
