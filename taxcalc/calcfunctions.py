@@ -22,7 +22,10 @@ import copy
 import numpy as np
 from taxcalc.decorators import iterate_jit, JIT
 
+from dask import delayed
 
+
+@delayed
 def BenefitPrograms(calc):
     """
     Calculate total government cost and consumption value of benefits
@@ -85,7 +88,8 @@ def BenefitPrograms(calc):
     calc.array('benefit_value_total', value)
 
 
-@iterate_jit(nopython=True)
+@delayed
+@iterate_jit(nopython=False)
 def EI_PayrollTax(SS_Earnings_c, e00200p, e00200s, pencon_p, pencon_s,
                   FICA_ss_trt, FICA_mc_trt, ALD_SelfEmploymentTax_hc,
                   SS_Earnings_thd, e00900p, e00900s, e02100p, e02100s, k1bx14p,
@@ -163,6 +167,7 @@ def EI_PayrollTax(SS_Earnings_c, e00200p, e00200s, pencon_p, pencon_s,
             earned, earned_p, earned_s, was_plus_sey_p, was_plus_sey_s)
 
 
+@delayed
 @iterate_jit(nopython=True)
 def DependentCare(nu13, elderly_dependents, earned,
                   MARS, ALD_Dependents_thd, ALD_Dependents_hc,
@@ -197,6 +202,7 @@ def DependentCare(nu13, elderly_dependents, earned,
     return care_deduction
 
 
+@delayed
 @iterate_jit(nopython=True)
 def Adj(e03150, e03210, c03260,
         e03270, e03300, e03400, e03500, e00800,
@@ -285,6 +291,7 @@ def Adj(e03150, e03210, c03260,
     return c02900
 
 
+@delayed
 @iterate_jit(nopython=True)
 def ALD_InvInc_ec_base(p22250, p23250, sep,
                        e00300, e00600, e01100, e01200,
@@ -299,6 +306,7 @@ def ALD_InvInc_ec_base(p22250, p23250, sep,
     return invinc_ec_base
 
 
+@delayed
 @iterate_jit(nopython=True)
 def CapGains(p23250, p22250, sep, ALD_StudentLoan_hc,
              ALD_InvInc_ec_rt, invinc_ec_base,
@@ -337,6 +345,7 @@ def CapGains(p23250, p22250, sep, ALD_StudentLoan_hc,
     return (c01000, c23650, ymod, ymod1, invinc_agi_ec)
 
 
+@delayed
 @iterate_jit(nopython=True)
 def SSBenefits(MARS, ymod, e02400, SS_thd50, SS_thd85,
                SS_percentage1, SS_percentage2, c02500):
@@ -355,6 +364,7 @@ def SSBenefits(MARS, ymod, e02400, SS_thd50, SS_thd85,
     return c02500
 
 
+@delayed
 @iterate_jit(nopython=True)
 def UBI(nu18, n1820, n21, UBI_u18, UBI_1820, UBI_21, UBI_ecrt,
         ubi, taxable_ubi, nontaxable_ubi):
@@ -391,6 +401,7 @@ def UBI(nu18, n1820, n21, UBI_u18, UBI_1820, UBI_21, UBI_ecrt,
     return ubi, taxable_ubi, nontaxable_ubi
 
 
+@delayed
 @iterate_jit(nopython=True)
 def AGI(ymod1, c02500, c02900, XTOT, MARS, sep, DSI, exact, nu18, taxable_ubi,
         II_em, II_em_ps, II_prt, II_no_em_nu18,
@@ -422,6 +433,7 @@ def AGI(ymod1, c02500, c02900, XTOT, MARS, sep, DSI, exact, nu18, taxable_ubi,
     return (c00100, pre_c04600, c04600)
 
 
+@delayed
 @iterate_jit(nopython=True)
 def ItemDedCap(e17500, e18400, e18500, e19200, e19800, e20100, e20400, g20500,
                c00100, ID_AmountCap_rt, ID_AmountCap_Switch, e17500_capped,
@@ -527,6 +539,7 @@ def ItemDedCap(e17500, e18400, e18500, e19200, e19800, e20100, e20400, g20500,
             e20400_capped, e19200_capped, e19800_capped, e20100_capped)
 
 
+@delayed
 @iterate_jit(nopython=True)
 def ItemDed(e17500_capped, e18400_capped, e18500_capped, e19200_capped,
             e19800_capped, e20100_capped, e20400_capped, g20500_capped,
@@ -684,6 +697,7 @@ def ItemDed(e17500_capped, e18400_capped, e18500_capped, e19200_capped,
             c21040, c21060, c04470)
 
 
+@delayed
 @iterate_jit(nopython=True)
 def AdditionalMedicareTax(e00200, MARS,
                           AMEDT_ec, sey, AMEDT_rt,
@@ -722,6 +736,7 @@ def AdditionalMedicareTax(e00200, MARS,
     return (ptax_amc, payrolltax)
 
 
+@delayed
 @iterate_jit(nopython=True)
 def StdDed(DSI, earned, STD, age_head, age_spouse, STD_Aged, STD_Dep,
            MARS, MIDR, blind_head, blind_spouse, standard, c19700,
@@ -783,6 +798,7 @@ def StdDed(DSI, earned, STD, age_head, age_spouse, STD_Aged, STD_Dep,
     return standard
 
 
+@delayed
 @iterate_jit(nopython=True)
 def TaxInc(c00100, standard, c04470, c04600, MARS, e00900, e26270,
            e02100, e27200, e00650, c01000,
@@ -840,6 +856,7 @@ def TaxInc(c00100, standard, c04470, c04600, MARS, e00900, e26270,
     return (c04800, qbided)
 
 
+@delayed
 @JIT(nopython=True)
 def SchXYZ(taxable_income, MARS, e00900, e26270, e02000, e00200,
            PT_rt1, PT_rt2, PT_rt3, PT_rt4, PT_rt5,
@@ -896,6 +913,7 @@ def SchXYZ(taxable_income, MARS, e00900, e26270, e02000, e00200,
     return reg_tax + pt_tax
 
 
+@delayed
 @iterate_jit(nopython=True)
 def SchXYZTax(c04800, MARS, e00900, e26270, e02000, e00200,
               PT_rt1, PT_rt2, PT_rt3, PT_rt4, PT_rt5,
@@ -925,6 +943,7 @@ def SchXYZTax(c04800, MARS, e00900, e26270, e02000, e00200,
     return c05200
 
 
+@delayed
 @iterate_jit(nopython=True)
 def GainsTax(e00650, c01000, c23650, p23250, e01100, e58990, e00200,
              e24515, e24518, MARS, c04800, c05200, e00900, e26270, e02000,
@@ -1036,6 +1055,7 @@ def GainsTax(e00650, c01000, c23650, p23250, e01100, e58990, e00200,
     return (dwks10, dwks13, dwks14, dwks19, c05700, taxbc)
 
 
+@delayed
 @iterate_jit(nopython=True)
 def AGIsurtax(c00100, MARS, AGI_surtax_trt, AGI_surtax_thd, taxbc, surtax):
     """
@@ -1048,6 +1068,7 @@ def AGIsurtax(c00100, MARS, AGI_surtax_trt, AGI_surtax_thd, taxbc, surtax):
     return (taxbc, surtax)
 
 
+@delayed
 @iterate_jit(nopython=True)
 def AMT(e07300, dwks13, standard, f6251, c00100, c18300, taxbc,
         c04470, c17000, c20800, c21040, e24515, MARS, sep, dwks19,
@@ -1142,6 +1163,7 @@ def AMT(e07300, dwks13, standard, f6251, c00100, c18300, taxbc,
     return (c62100, c09600, c05800)
 
 
+@delayed
 @iterate_jit(nopython=True)
 def NetInvIncTax(e00300, e00600, e02000, e26270, c01000,
                  c00100, NIIT_thd, MARS, NIIT_PT_taxed, NIIT_rt, niit):
@@ -1158,6 +1180,7 @@ def NetInvIncTax(e00300, e00600, e02000, e26270, c01000,
     return niit
 
 
+@delayed
 @iterate_jit(nopython=True)
 def F2441(MARS, earned_p, earned_s, f2441, CDCC_c, e32800,
           exact, c00100, CDCC_ps, CDCC_crt, c05800, e07300, c07180):
@@ -1204,6 +1227,7 @@ def EITCamount(basic_frac, phasein_rate, earnings, max_amount,
     return eitc
 
 
+@delayed
 @iterate_jit(nopython=True)
 def EITC(MARS, DSI, EIC, c00100, e00300, e00400, e00600, c01000,
          e02000, e26270, age_head, age_spouse, earned, earned_p, earned_s,
@@ -1273,6 +1297,7 @@ def EITC(MARS, DSI, EIC, c00100, e00300, e00400, e00600, c01000,
     return c59660
 
 
+@delayed
 @iterate_jit(nopython=True)
 def RefundablePayrollTaxCredit(was_plus_sey_p, was_plus_sey_s,
                                RPTC_c, RPTC_rt,
@@ -1286,6 +1311,7 @@ def RefundablePayrollTaxCredit(was_plus_sey_p, was_plus_sey_s,
     return (rptc_p, rptc_s, rptc)
 
 
+@delayed
 @iterate_jit(nopython=True)
 def ChildDepTaxCredit(n24, MARS, c00100, XTOT, num, c05800,
                       e07260, CR_ResidentialEnergy_hc,
@@ -1341,6 +1367,7 @@ def ChildDepTaxCredit(n24, MARS, c00100, XTOT, num, c05800,
     return (c07220, odc, codtc_limited)
 
 
+@delayed
 @iterate_jit(nopython=True)
 def PersonalTaxCredit(MARS, c00100,
                       II_credit, II_credit_ps, II_credit_prt,
@@ -1366,6 +1393,7 @@ def PersonalTaxCredit(MARS, c00100,
     return (personal_refundable_credit, personal_nonrefundable_credit)
 
 
+@delayed
 @iterate_jit(nopython=True)
 def AmOppCreditParts(exact, e87521, num, c00100, CR_AmOppRefundable_hc,
                      CR_AmOppNonRefundable_hc, c10960, c87668):
@@ -1425,6 +1453,7 @@ def AmOppCreditParts(exact, e87521, num, c00100, CR_AmOppRefundable_hc,
     return (c10960, c87668)
 
 
+@delayed
 @iterate_jit(nopython=True)
 def SchR(age_head, age_spouse, MARS, c00100,
          c05800, e07300, c07180, e02400, c02500, e01500, e01700, CR_SchR_hc,
@@ -1480,6 +1509,7 @@ def SchR(age_head, age_spouse, MARS, c00100,
     return c07200
 
 
+@delayed
 @iterate_jit(nopython=True)
 def EducationTaxCredit(exact, e87530, MARS, c00100, num, c05800,
                        e07300, c07180, c07200, c87668,
@@ -1542,6 +1572,7 @@ def EducationTaxCredit(exact, e87530, MARS, c00100, num, c05800,
     return c07230
 
 
+@delayed
 @iterate_jit(nopython=True)
 def CharityCredit(e19800, e20100, c00100, CR_Charity_rt, CR_Charity_f,
                   CR_Charity_frt, MARS, charity_credit):
@@ -1556,6 +1587,7 @@ def CharityCredit(e19800, e20100, c00100, CR_Charity_rt, CR_Charity_f,
     return charity_credit
 
 
+@delayed
 @iterate_jit(nopython=True)
 def NonrefundableCredits(c05800, e07240, e07260, e07300, e07400,
                          e07600, p08000, odc,
@@ -1622,6 +1654,7 @@ def NonrefundableCredits(c05800, e07240, e07260, e07300, e07400,
             personal_nonrefundable_credit)
 
 
+@delayed
 @iterate_jit(nopython=True)
 def AdditionalCTC(codtc_limited, ACTC_c, n24, earned, ACTC_Income_thd,
                   ACTC_rt, nu05, ACTC_rt_bonus_under5family, ACTC_ChildNum,
@@ -1661,6 +1694,7 @@ def AdditionalCTC(codtc_limited, ACTC_c, n24, earned, ACTC_Income_thd,
     return c11070
 
 
+@delayed
 @iterate_jit(nopython=True)
 def C1040(c05800, c07180, c07200, c07220, c07230, c07240, c07260, c07300,
           c07400, c07600, c08000, e09700, e09800, e09900, niit, othertaxes,
@@ -1682,6 +1716,7 @@ def C1040(c05800, c07180, c07200, c07220, c07230, c07240, c07260, c07300,
     return (c07100, othertaxes, c09200)
 
 
+@delayed
 @iterate_jit(nopython=True)
 def CTC_new(CTC_new_c, CTC_new_rt, CTC_new_c_under5_bonus,
             CTC_new_ps, CTC_new_prt, CTC_new_for_all,
@@ -1715,6 +1750,7 @@ def CTC_new(CTC_new_c, CTC_new_rt, CTC_new_c_under5_bonus,
     return ctc_new
 
 
+@delayed
 @iterate_jit(nopython=True)
 def IITAX(c59660, c11070, c10960, personal_refundable_credit, ctc_new, rptc,
           c09200, payrolltax,
@@ -1730,6 +1766,7 @@ def IITAX(c59660, c11070, c10960, personal_refundable_credit, ctc_new, rptc,
     return (eitc, refund, iitax, combined)
 
 
+@delayed
 @JIT(nopython=True)
 def Taxes(income, MARS, tbrk_base,
           rate1, rate2, rate3, rate4, rate5, rate6, rate7, rate8,
@@ -1765,6 +1802,7 @@ def Taxes(income, MARS, tbrk_base,
             rate8 * max(0., income - brk7))
 
 
+@delayed
 def ComputeBenefit(calc, ID_switch):
     """
     Calculates the value of the benefits accrued from itemizing.
@@ -1792,6 +1830,7 @@ def ComputeBenefit(calc, ID_switch):
     return benefit
 
 
+@delayed
 def BenefitSurtax(calc):
     """
     Computes itemized-deduction-benefit surtax and adds the surtax amount
@@ -1813,6 +1852,7 @@ def BenefitSurtax(calc):
         calc.incarray('surtax', ben_surtax)
 
 
+@delayed
 def BenefitLimitation(calc):
     """
     Limits the benefits of select itemized deductions to a fraction of
@@ -1850,6 +1890,7 @@ def BenefitLimitation(calc):
         calc.incarray('combined', excess_benefit)
 
 
+@delayed
 @iterate_jit(nopython=True)
 def FairShareTax(c00100, MARS, ptax_was, setax, ptax_amc,
                  FST_AGI_trt, FST_AGI_thd_lo, FST_AGI_thd_hi,
@@ -1895,6 +1936,7 @@ def FairShareTax(c00100, MARS, ptax_was, setax, ptax_amc,
     return (fstax, iitax, combined, surtax)
 
 
+@delayed
 @iterate_jit(nopython=True)
 def LumpSumTax(DSI, num, XTOT,
                LST,
@@ -1910,6 +1952,7 @@ def LumpSumTax(DSI, num, XTOT,
     return (lumpsum_tax, combined)
 
 
+@delayed
 @iterate_jit(nopython=True)
 def ExpandIncome(e00200, pencon_p, pencon_s, e00300, e00400, e00600,
                  e00700, e00800, e00900, e01100, e01200, e01400, e01500,
@@ -1947,6 +1990,7 @@ def ExpandIncome(e00200, pencon_p, pencon_s, e00300, e00400, e00600,
     return expanded_income
 
 
+@delayed
 @iterate_jit(nopython=True)
 def AfterTaxIncome(combined, expanded_income, aftertax_income):
     """

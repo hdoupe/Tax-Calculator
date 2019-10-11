@@ -11,6 +11,7 @@ import io
 import ast
 import inspect
 import numba
+import taxcalc
 from taxcalc.policy import Policy
 
 
@@ -88,16 +89,19 @@ def create_apply_function_string(sigout, sigin, parameters):
     total_len = len(sigout) + len(sigin)
     out_args = ["x_" + str(i) for i in range(0, len(sigout))]
     in_args = ["x_" + str(i) for i in range(len(sigout), total_len)]
-
+    fstr.write("import taxcalc\n")
     fstr.write("def ap_func({0}):\n".format(",".join(out_args + in_args)))
-    fstr.write("  for i in range(len(x_0)):\n")
-    out_index = [x + "[i]" for x in out_args]
+    # fstr.write("    print('heeyyyoooo')\n")
+    fstr.write("    res = []\n")
+    # fstr.write("    print('looping')\n")
+    fstr.write("    for i in range(len(x_0)):\n")
+    # out_index = [x + "[i]" for x in out_args]
     in_index = []
     for arg, _var in zip(in_args, sigin):
         in_index.append(arg + "[i]" if _var not in parameters else arg)
-    fstr.write("    " + ",".join(out_index) + " = ")
-    fstr.write("jitted_f(" + ",".join(in_index) + ")\n")
-    fstr.write("  return " + ",".join(out_args) + "\n")
+    fstr.write("        res.append(jitted_f(" + ",".join(in_index) + "))\n")
+    # fstr.write("    print('returning')\n")
+    fstr.write("    return res\n")
     return fstr.getvalue()
 
 
@@ -126,20 +130,37 @@ def create_toplevel_function_string(args_out, args_in, pm_or_pf):
     fstr.write("def hl_func(pm, pf")
     fstr.write("):\n")
     fstr.write("    from pandas import DataFrame\n")
+    fstr.write("    import dask.dataframe as dd\n")
+    fstr.write("    import dask.array as da\n")
     fstr.write("    import numpy as np\n")
     fstr.write("    import pandas as pd\n")
     fstr.write("    def get_values(x):\n")
     fstr.write("        if isinstance(x, pd.Series):\n")
-    fstr.write("            return x.values\n")
+    fstr.write("            res = x.values\n")
+    fstr.write("        elif isinstance(x, dd.Series):\n")
+    fstr.write("            return x.values.compute()\n")
+    fstr.write("        elif isinstance(x, da.Array):\n")
+    fstr.write("            return x.compute()\n")
     fstr.write("        else:\n")
-    fstr.write("            return x\n")
+    fstr.write("            res = x\n")
+    fstr.write("        return res\n")
+    # fstr.write("    print('getting outputs')\n")
+
+    # outs = []
+    # for ppp, attr in zip(pm_or_pf, args_out + args_in):
+    #     outs.append(ppp + "." + attr + ", ")
+    # outs = [m_or_f + "." + arg for m_or_f, arg in zip(pm_or_pf, args_out)]
+    # fstr.write("        (" + ", ".join(outs) + ") = \\\n")
+
+    # test array could be made...
+    # fstr.write("    t = (")
+    # for ppp, attr in zip(pm_or_pf, args_out + args_in):
+    #     fstr.write("get_values(" + ppp + "." + attr + ")" + ", ")
+    # fstr.write(")\n")
+    # fstr.write("    print('made t')\n")
+
     fstr.write("    outputs = \\\n")
 
-    outs = []
-    for ppp, attr in zip(pm_or_pf, args_out + args_in):
-        outs.append(ppp + "." + attr + ", ")
-    outs = [m_or_f + "." + arg for m_or_f, arg in zip(pm_or_pf, args_out)]
-    fstr.write("        (" + ", ".join(outs) + ") = \\\n")
     fstr.write("        " + "applied_f(")
     for ppp, attr in zip(pm_or_pf, args_out + args_in):
         fstr.write("get_values(" + ppp + "." + attr + ")" + ", ")
@@ -148,12 +169,11 @@ def create_toplevel_function_string(args_out, args_in, pm_or_pf):
     col_headers = ["'" + out + "'" for out in args_out]
     fstr.write(", ".join(col_headers))
     fstr.write("]\n")
-    if len(args_out) == 1:
-        fstr.write("    return DataFrame(data=outputs,"
-                   "columns=header)")
-    else:
-        fstr.write("    return DataFrame(data=np.column_stack("
-                   "outputs),columns=header)")
+    # fstr.write("    print('got outputs', outputs)\n")
+    fstr.write("    df = dd.from_array(da.from_array(outputs),"
+                "columns=header)\n")
+    # fstr.write("    print('got df', df.columns)\n")
+    fstr.write("    return df")
     return fstr.getvalue()
 
 
@@ -186,6 +206,7 @@ def make_apply_function(func, out_args, in_args, parameters,
     else:
         jitted_f = func
     apfunc = create_apply_function_string(out_args, in_args, parameters)
+    # print('apfunc', apfunc)
     func_code = compile(apfunc, "<string>", "exec")
     fakeglobals = {}
     eval(func_code,  # pylint: disable=eval-used
@@ -309,12 +330,15 @@ def iterate_jit(parameters=None, **kwargs):
             high_level_func = create_toplevel_function_string(all_out_args,
                                                               list(in_args),
                                                               pm_or_pf)
+            # print('func2', high_level_func)
             func_code = compile(high_level_func, "<string>", "exec")
-            fakeglobals = {}
+            fakeglobals = {"taxcalc": taxcalc}
             eval(func_code,  # pylint: disable=eval-used
                  {"applied_f": applied_jitted_f}, fakeglobals)
             high_level_fn = fakeglobals['hl_func']
             ans = high_level_fn(*args, **kwargs)
+            # print("got ans", ans)
+            [setattr(args[1], c, ans[c].values) for c in ans.columns]
             return ans
 
         return wrapper

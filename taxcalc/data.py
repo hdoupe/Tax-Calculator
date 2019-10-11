@@ -9,8 +9,20 @@ import os
 import abc
 import numpy as np
 import pandas as pd
+import dask.dataframe as dd
+import dask.array as da
+from distributed import Client
 from taxcalc.growfactors import GrowFactors
 from taxcalc.utils import read_egg_csv, read_egg_json, json_to_dict
+
+
+def len_df(df):
+    if isinstance(df, dd.DataFrame):
+        with Client() as c:
+            fut = c.submit(len, df)
+            return fut.result()
+    else:
+        return len(df)
 
 
 class Data():
@@ -66,7 +78,7 @@ class Data():
     VARINFO_FILE_NAME = None
     VARINFO_FILE_PATH = None
 
-    def __init__(self, data, start_year, gfactors=None, weights=None):
+    def __init__(self, data, start_year, gfactors=None, weights=None, use_dask=False):
         # initialize data variable info sets and read variable information
         self.INTEGER_READ_VARS = set()
         self.MUST_READ_VARS = set()
@@ -74,6 +86,9 @@ class Data():
         self.CALCULATED_VARS = set()
         self.CHANGING_CALCULATED_VARS = set()
         self.INTEGER_VARS = set()
+        if use_dask:
+            print("using dask")
+        self.use_dask = use_dask
         self._read_var_info()
         if data is not None:
             # check consistency of specified gfactors and weights
@@ -100,7 +115,7 @@ class Data():
             if self.__aging_data:
                 self._read_weights(weights)
                 # ... weights must be same size as data
-                if self.array_length != len(self.WT.index):
+                if self.array_length != len_df(self.WT):
                     # scale-up sub-sample weights by year-specific factor
                     sum_full_weights = self.WT.sum()
                     self.WT = self.WT.iloc[self.__index]
@@ -111,6 +126,9 @@ class Data():
                 wt_colname = 'WT{}'.format(self.current_year)
                 if wt_colname in self.WT.columns:
                     self.s006 = self.WT[wt_colname] * 0.01
+        if self.use_dask:
+            self.WT = dd.from_pandas(self.WT, npartitions=20)
+            # WT.to_dask_array(lengths=True)
 
     @property
     def data_year(self):
@@ -192,7 +210,7 @@ class Data():
         if data is None:
             return  # because there are no data to read
         # read specified data
-        if isinstance(data, pd.DataFrame):
+        if isinstance(data, (pd.DataFrame, dd.DataFrame)):
             taxdf = data
         elif isinstance(data, str):
             if os.path.isfile(data):
@@ -202,20 +220,26 @@ class Data():
         else:
             msg = 'data is neither a string nor a Pandas DataFrame'
             raise ValueError(msg)
-        self.__dim = len(taxdf.index)
+        # if self.use_dask:
+        taxdf = dd.from_pandas(taxdf, npartitions=20)
+        arrdf = taxdf.to_dask_array(lengths=True)
+        # comped = arrdf.compute()
+        # for i, c in enumerate(taxdf.columns):
+        #     print(i, c, da.allclose(taxdf[c], comped[:, i]).compute())
+        self.__dim = len_df(taxdf)
         self.__index = taxdf.index
         # create class variables using taxdf column names
         READ_VARS = set()
         self.IGNORED_VARS = set()
-        for varname in list(taxdf.columns.values):
+        for i, varname in enumerate(taxdf.columns):
             if varname in self.USABLE_READ_VARS:
                 READ_VARS.add(varname)
                 if varname in self.INTEGER_READ_VARS:
                     setattr(self, varname,
-                            taxdf[varname].astype(np.int32).values)
+                            arrdf[:, i].astype(np.int32))
                 else:
                     setattr(self, varname,
-                            taxdf[varname].astype(np.float64).values)
+                            arrdf[:, i].astype(np.float64))
             else:
                 self.IGNORED_VARS.add(varname)
         # check that MUST_READ_VARS are all present in taxdf
@@ -227,13 +251,17 @@ class Data():
         # create other class variables that are set to all zeros
         UNREAD_VARS = self.USABLE_READ_VARS - READ_VARS
         ZEROED_VARS = self.CALCULATED_VARS | UNREAD_VARS
+        arrlib = da if self.use_dask else np
         for varname in ZEROED_VARS:
             if varname in self.INTEGER_VARS:
                 setattr(self, varname,
-                        np.zeros(self.array_length, dtype=np.int32))
+                        arrlib.zeros(self.array_length, dtype=np.int32))
             else:
                 setattr(self, varname,
-                        np.zeros(self.array_length, dtype=np.float64))
+                        arrlib.zeros(self.array_length, dtype=np.float64))
+            if self.use_dask and np.nan in getattr(self, varname).shape:
+                print('2 computing chunk size', varname, getattr(self, varname).shape)
+                getattr(self, varname).compute_chunk_sizes()
         # delete intermediate variables
         del READ_VARS
         del UNREAD_VARS
@@ -257,7 +285,7 @@ class Data():
         """
         if weights is None:
             return
-        if isinstance(weights, pd.DataFrame):
+        if isinstance(weights, (pd.DataFrame, dd.DataFrame)):
             WT = weights
         elif isinstance(weights, str):
             if os.path.isfile(weights):
@@ -268,7 +296,7 @@ class Data():
         else:
             msg = 'weights is not None or a string or a Pandas DataFrame'
             raise ValueError(msg)
-        assert isinstance(WT, pd.DataFrame)
+        assert isinstance(WT, (pd.DataFrame, dd.DataFrame))
         setattr(self, 'WT', WT.astype(np.int32))
         del WT
 

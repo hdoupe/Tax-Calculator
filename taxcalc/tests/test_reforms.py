@@ -241,7 +241,7 @@ def reform_results(rid, reform_dict, puf_data, reform_2017_law):
     Return actual results of the reform specified by rid and reform_dict.
     """
     # pylint: disable=too-many-locals
-    rec = Records(data=puf_data)
+    rec = Records(data=puf_data, use_dask=True)
     # create baseline Calculator object, calc1
     pol = Policy()
     if reform_dict['baseline'] == '2017_law.json':
@@ -271,8 +271,8 @@ def reform_results(rid, reform_dict, puf_data, reform_2017_law):
         baseline = calc1.array(output_type)
         calc2.calc_all()
         reform = calc2.array(output_type)
-        diff = reform - baseline
-        weighted_sum_diff = (diff * calc1.array('s006')).sum() * 1.0e-9
+        diff = (reform - baseline).compute()
+        weighted_sum_diff = (diff * calc1.array('s006').compute()).sum() * 1.0e-9
         results.append(weighted_sum_diff)
         calc1.increment_year()
         calc2.increment_year()

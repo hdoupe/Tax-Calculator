@@ -13,5 +13,6 @@ from taxcalc.records import *
 from taxcalc.taxcalcio import *
 from taxcalc.utils import *
 from taxcalc.cli import *
+from taxcalc.calcfunctions import *
 
 __version__ = '0.0.0'

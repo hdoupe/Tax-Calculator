@@ -10,6 +10,8 @@ Tax-Calculator federal income and payroll tax Calculator class.
 import copy
 import numpy as np
 import pandas as pd
+import dask.dataframe as dd
+import dask.array as da
 from taxcalc.calcfunctions import (TaxInc, SchXYZTax, GainsTax, AGIsurtax,
                                    NetInvIncTax, AMT, EI_PayrollTax, Adj,
                                    DependentCare, ALD_InvInc_ec_base, CapGains,
@@ -162,14 +164,14 @@ class Calculator():
         Call all tax-calculation functions for the current_year.
         """
         # conducts static analysis of Calculator object for current_year
-        BenefitPrograms(self)
+        BenefitPrograms(self).compute()
         self._calc_one_year(zero_out_calc_vars)
-        BenefitSurtax(self)
-        BenefitLimitation(self)
-        FairShareTax(self.__policy, self.__records)
-        LumpSumTax(self.__policy, self.__records)
-        ExpandIncome(self.__policy, self.__records)
-        AfterTaxIncome(self.__policy, self.__records)
+        BenefitSurtax(self).compute()
+        BenefitLimitation(self).compute()
+        FairShareTax(self.__policy, self.__records).compute()
+        LumpSumTax(self.__policy, self.__records).compute()
+        ExpandIncome(self.__policy, self.__records).compute()
+        AfterTaxIncome(self.__policy, self.__records).compute()
 
     def weighted_total(self, variable_name):
         """
@@ -214,7 +216,7 @@ class Calculator():
         """
         if variable_value is None:
             return getattr(self.__records, variable_name)
-        assert isinstance(variable_value, np.ndarray)
+        assert isinstance(variable_value, (da.Array, np.ndarray))
         setattr(self.__records, variable_name, variable_value)
         return None
 
@@ -232,7 +234,7 @@ class Calculator():
         """
         Add variable_add to named variable in embedded Records object.
         """
-        assert isinstance(variable_add, np.ndarray)
+        assert isinstance(variable_add, (da.Array, np.ndarray))
         setattr(self.__records, variable_name,
                 self.array(variable_name) + variable_add)
 
@@ -1341,7 +1343,7 @@ class Calculator():
         if zero_out_calc_vars:
             self.__records.zero_out_changing_calculated_vars()
         # pdb.set_trace()
-        EI_PayrollTax(self.__policy, self.__records)
+        EI_PayrollTax(self.__policy, self.__records).compute()
         DependentCare(self.__policy, self.__records)
         Adj(self.__policy, self.__records)
         ALD_InvInc_ec_base(self.__policy, self.__records)

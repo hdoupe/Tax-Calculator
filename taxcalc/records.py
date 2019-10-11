@@ -8,6 +8,8 @@ Tax-Calculator tax-filing-unit Records class.
 import os
 import numpy as np
 import pandas as pd
+import dask.dataframe as dd
+import dask.array as da
 from taxcalc.data import Data
 from taxcalc.growfactors import GrowFactors
 from taxcalc.utils import read_egg_csv
@@ -122,78 +124,96 @@ class Records(Data):
                  gfactors=GrowFactors(),
                  weights=PUF_WEIGHTS_FILENAME,
                  adjust_ratios=PUF_RATIOS_FILENAME,
-                 exact_calculations=False):
+                 exact_calculations=False,
+                 use_dask=False):
         # pylint: disable=no-member,too-many-branches
         if isinstance(weights, str):
             weights = os.path.join(Records.CODE_PATH, weights)
-        super().__init__(data, start_year, gfactors, weights)
+        super().__init__(data, start_year, gfactors, weights, use_dask=use_dask)
         if data is None:
             return  # because there are no data
         # read adjustment ratios
         self.ADJ = None
         self._read_ratios(adjust_ratios)
+
+        arrlib = da if self.use_dask else np
+        print("arrlib", arrlib)
         # specify exact value based on exact_calculations
-        self.exact[:] = np.where(exact_calculations is True, 1, 0)
+        # da doesn't support slicing...
+        if exact_calculations:
+            self.exact = arrlib.full_like(self.exact, 1)
+        else:
+            self.exact = arrlib.full_like(self.exact, 0)
         # specify FLPDYR value based on start_year
-        self.FLPDYR.fill(start_year)
+        self.FLPDYR = arrlib.full_like(self.FLPDYR, start_year)
         # check for valid MARS values
         if not np.all(np.logical_and(np.greater_equal(self.MARS, 1),
                                      np.less_equal(self.MARS, 5))):
             raise ValueError('not all MARS values in [1,5] range')
         # create variables derived from MARS, which is in MUST_READ_VARS
-        self.num[:] = np.where(self.MARS == 2, 2, 1)
-        self.sep[:] = np.where(self.MARS == 3, 2, 1)
+        # da doesn't support slicing...
+        self.num = arrlib.where(self.MARS == 2, 2, 1).astype(self.num.dtype)
+        self.sep = arrlib.where(self.MARS == 3, 2, 1).astype(self.sep.dtype)
         # check for valid EIC values
-        if not np.all(np.logical_and(np.greater_equal(self.EIC, 0),
-                                     np.less_equal(self.EIC, 3))):
+        if not arrlib.all(arrlib.logical_and(arrlib.greater_equal(self.EIC, 0),
+                                     arrlib.less_equal(self.EIC, 3))).compute():
             raise ValueError('not all EIC values in [0,3] range')
-        # check that three sets of split-earnings variables have valid values
+        # check that three sets opd.f split-earnings variables have valid values
         msg = 'expression "{0} == {0}p + {0}s" is not true for every record'
         tol = 0.020001  # handles "%.2f" rounding errors
-        if not np.allclose(self.e00200, (self.e00200p + self.e00200s),
+        # TODO: handle both cases
+        if not arrlib.allclose(self.e00200, (self.e00200p + self.e00200s),
                            rtol=0.0, atol=tol):
             raise ValueError(msg.format('e00200'))
-        if not np.allclose(self.e00900, (self.e00900p + self.e00900s),
+        if not da.allclose(self.e00900, (self.e00900p + self.e00900s),
                            rtol=0.0, atol=tol):
             raise ValueError(msg.format('e00900'))
-        if not np.allclose(self.e02100, (self.e02100p + self.e02100s),
+        if not da.allclose(self.e02100, (self.e02100p + self.e02100s),
                            rtol=0.0, atol=tol):
             raise ValueError(msg.format('e02100'))
         # check that spouse income variables have valid values
         nospouse = self.MARS != 2
-        zeros = np.zeros_like(self.MARS[nospouse])
+        # TODO: why won't this work without the extra compute call?
+        if self.use_dask:
+            zeros = arrlib.zeros_like(self.MARS[nospouse].compute())
+        else:
+            zeros = np.zeros_like(self.MARS[nospouse])
         msg = '{} is not always zero for non-married filing unit'
-        if not np.allclose(self.e00200s[nospouse], zeros):
+        # breakpoint()
+        if not arrlib.allclose(self.e00200s[nospouse].compute(), zeros):
             raise ValueError(msg.format('e00200s'))
-        if not np.allclose(self.e00900s[nospouse], zeros):
+        if not arrlib.allclose(self.e00900s[nospouse].compute(), zeros):
             raise ValueError(msg.format('e00900s'))
-        if not np.allclose(self.e02100s[nospouse], zeros):
+        if not arrlib.allclose(self.e02100s[nospouse].compute(), zeros):
             raise ValueError(msg.format('e02100s'))
-        if not np.allclose(self.k1bx14s[nospouse], zeros):
+        # TODO: set array shape on nospouse since k1bx14s has a defined shape?
+        nospouse.compute_chunk_sizes()
+        if not arrlib.allclose(self.k1bx14s[nospouse].compute(), zeros):
             raise ValueError(msg.format('k1bx14s'))
         # check that ordinary dividends are no less than qualified dividends
-        other_dividends = np.maximum(0., self.e00600 - self.e00650)
-        if not np.allclose(self.e00600, self.e00650 + other_dividends,
+        other_dividends = arrlib.maximum(0., self.e00600 - self.e00650)
+        if not arrlib.allclose(self.e00600, self.e00650 + other_dividends,
                            rtol=0.0, atol=tol):
             msg = 'expression "e00600 >= e00650" is not true for every record'
             raise ValueError(msg)
         del other_dividends
         # check that total pension income is no less than taxable pension inc
-        nontaxable_pensions = np.maximum(0., self.e01500 - self.e01700)
+        nontaxable_pensions = arrlib.maximum(0., self.e01500 - self.e01700)
         if not np.allclose(self.e01500, self.e01700 + nontaxable_pensions,
                            rtol=0.0, atol=tol):
             msg = 'expression "e01500 >= e01700" is not true for every record'
             raise ValueError(msg)
         del nontaxable_pensions
         # check that PT_SSTB_income has valid value
-        if not np.all(np.logical_and(np.greater_equal(self.PT_SSTB_income, 0),
-                                     np.less_equal(self.PT_SSTB_income, 1))):
+        if not arrlib.all(arrlib.logical_and(arrlib.greater_equal(self.PT_SSTB_income, 0),
+                                     arrlib.less_equal(self.PT_SSTB_income, 1))):
             raise ValueError('not all PT_SSTB_income values are 0 or 1')
 
     @staticmethod
     def cps_constructor(data=None,
                         gfactors=GrowFactors(),
-                        exact_calculations=False):
+                        exact_calculations=False,
+                        use_dask=False):
         """
         Static method returns a Records object instantiated with CPS
         input data.  This works in a analogous way to Records(), which
@@ -216,7 +236,8 @@ class Records(Data):
                        gfactors=gfactors,
                        weights=weights,
                        adjust_ratios=Records.CPS_RATIOS_FILENAME,
-                       exact_calculations=exact_calculations)
+                       exact_calculations=exact_calculations,
+                       use_dask=use_dask)
 
     def increment_year(self):
         """
@@ -224,7 +245,8 @@ class Records(Data):
         extrapolation, reweighting, adjusting for new current year.
         """
         super().increment_year()
-        self.FLPDYR.fill(self.current_year)  # pylint: disable=no-member
+        arrlib = da if self.use_dask else np
+        self.FLPDYR = arrlib.full_like(self.FLPDYR, self.current_year)  # pylint: disable=no-member
         # apply variable adjustment ratios
         self._adjust(self.current_year)
 
@@ -248,6 +270,8 @@ class Records(Data):
         """
         # pylint: disable=too-many-statements,no-member
         # put values in local dictionary
+
+        arrlib = da if self.use_dask else np
         gfv = dict()
         for name in GrowFactors.VALID_NAMES:
             gfv[name] = self.gfactors.factor_value(name, year)
@@ -263,19 +287,19 @@ class Records(Data):
         self.e00650 *= gfv['ADIVS']
         self.e00700 *= gfv['ATXPY']
         self.e00800 *= gfv['ATXPY']
-        self.e00900s[:] = np.where(self.e00900s >= 0,
+        self.e00900s = arrlib.where(self.e00900s >= 0,
                                    self.e00900s * gfv['ASCHCI'],
                                    self.e00900s * gfv['ASCHCL'])
-        self.e00900p[:] = np.where(self.e00900p >= 0,
+        self.e00900p = arrlib.where(self.e00900p >= 0,
                                    self.e00900p * gfv['ASCHCI'],
                                    self.e00900p * gfv['ASCHCL'])
-        self.e00900[:] = self.e00900p + self.e00900s
+        self.e00900 = self.e00900p + self.e00900s
         self.e01100 *= gfv['ACGNS']
         self.e01200 *= gfv['ACGNS']
         self.e01400 *= gfv['ATXPY']
         self.e01500 *= gfv['ATXPY']
         self.e01700 *= gfv['ATXPY']
-        self.e02000[:] = np.where(self.e02000 >= 0,
+        self.e02000 = arrlib.where(self.e02000 >= 0,
                                   self.e02000 * gfv['ASCHEI'],
                                   self.e02000 * gfv['ASCHEL'])
         self.e02100 *= gfv['ASCHF']
@@ -348,9 +372,10 @@ class Records(Data):
         Note: adjustment must leave variables as numpy.ndarray type
         """
         # pylint: disable=no-member
+        # breakpoint()
         if self.ADJ.size > 0:
             # Interest income
-            self.e00300 *= self.ADJ['INT{}'.format(year)][self.agi_bin].values
+            self.e00300 *= self.ADJ['INT{}'.format(year)][self.agi_bin.compute()]#.values
 
     def _read_ratios(self, ratios):
         """

@@ -8,6 +8,7 @@ Tax-Calculator GrowFactors class.
 import os
 import numpy as np
 import pandas as pd
+import dask.dataframe as dd
 from taxcalc.utils import read_egg_csv
 
 
@@ -48,22 +49,25 @@ class GrowFactors():
                        'ABENSSI', 'ABENSNAP', 'ABENWIC',
                        'ABENHOUSING', 'ABENTANF', 'ABENVET'])
 
-    def __init__(self, growfactors_filename=FILE_NAME):
+    def __init__(self, growfactors_filename=FILE_NAME, use_dask=False):
         # read grow factors from specified growfactors_filename
-        gfdf = pd.DataFrame()
+        gfdf = dd.DataFrame if use_dask else pd.DataFrame()
         if isinstance(growfactors_filename, str):
             full_filename = os.path.join(GrowFactors.FILE_PATH,
                                          growfactors_filename)
             if os.path.isfile(full_filename):
-                gfdf = pd.read_csv(full_filename, index_col='YEAR')
+                if use_dask:
+                    gfdf = dd.read_csv(full_filename, index_col='YEAR')
+                else:
+                    gfdf = pd.read_csv(full_filename, index_col='YEAR')
             else:  # find file in conda package
                 gfdf = read_egg_csv(os.path.basename(growfactors_filename),
-                                    index_col='YEAR')  # pragma: no cover
+                                    index_col='YEAR', use_dask=use_dask)  # pragma: no cover
         else:
             raise ValueError('growfactors_filename is not a string')
-        assert isinstance(gfdf, pd.DataFrame)
+        assert isinstance(gfdf, (dd.DataFrame, pd.DataFrame))
         # check validity of gfdf column names
-        gfdf_names = set(list(gfdf))
+        gfdf_names = set(list(gfdf.columns))
         if gfdf_names != GrowFactors.VALID_NAMES:
             msg = ('missing names are: {} and invalid names are: {}')
             missing = GrowFactors.VALID_NAMES - gfdf_names
@@ -73,8 +77,7 @@ class GrowFactors():
         self._first_year = min(gfdf.index)
         self._last_year = max(gfdf.index)
         # set gfdf as attribute of class
-        self.gfdf = pd.DataFrame()
-        setattr(self, 'gfdf', gfdf.astype(np.float64))
+        self.gfdf = gfdf.astype(np.float64)
         del gfdf
         # specify factors as being unused (that is, not yet accessed)
         self.used = False
