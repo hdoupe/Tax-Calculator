@@ -856,7 +856,6 @@ def TaxInc(c00100, standard, c04470, c04600, MARS, e00900, e26270,
     return (c04800, qbided)
 
 
-@delayed
 @JIT(nopython=True)
 def SchXYZ(taxable_income, MARS, e00900, e26270, e02000, e00200,
            PT_rt1, PT_rt2, PT_rt3, PT_rt4, PT_rt5,
@@ -1766,7 +1765,6 @@ def IITAX(c59660, c11070, c10960, personal_refundable_credit, ctc_new, rptc,
     return (eitc, refund, iitax, combined)
 
 
-@delayed
 @JIT(nopython=True)
 def Taxes(income, MARS, tbrk_base,
           rate1, rate2, rate3, rate4, rate5, rate6, rate7, rate8,
