@@ -10,9 +10,15 @@ import os
 import io
 import ast
 import inspect
+from functools import partial
 import numba
+import pandas as pd
+import dask.dataframe as dd
+import dask.array as da
+from dask import delayed
 import taxcalc
 from taxcalc.policy import Policy
+from taxcalc.records import Records
 
 
 DO_JIT = True
@@ -58,201 +64,28 @@ class GetReturnNode(ast.NodeVisitor):
             return [e.id for e in node.value.elts]
         return [node.value.id]
 
+def ap_func(pol_args, rec_df, out_args, records_signature, jitted_f):
+    partialled = partial(jitted_f, **pol_args)
 
-def create_apply_function_string(sigout, sigin, parameters):
-    """
-    Create a string for a function of the form::
+    def to_apply(row):
+        res = partialled(**row.to_dict())
+        return pd.Series(res, index=out_args)
 
-       def ap_fuc(x_0, x_1, x_2, ...):
-           for i in range(len(x_0)):
-               x_0[i], ... = jitted_f(x_j[i], ...)
-           return x_0[i], ...
-
-    where the specific args to jitted_f and the number of
-    values to return is determined by sigout and sigin.
-
-    Parameters
-    ----------
-    sigout: iterable of the out arguments
-
-    sigin: iterable of the in arguments
-
-    parameters: iterable of which of the args (from in_args) are parameter
-                variables (as opposed to column records). This influences
-                how we construct the apply-style function
-
-    Returns
-    -------
-    a String representing the function
-    """
-    fstr = io.StringIO()
-    total_len = len(sigout) + len(sigin)
-    out_args = ["x_" + str(i) for i in range(0, len(sigout))]
-    in_args = ["x_" + str(i) for i in range(len(sigout), total_len)]
-    fstr.write("import taxcalc\n")
-    fstr.write("def ap_func({0}):\n".format(",".join(out_args + in_args)))
-    # fstr.write("    print('heeyyyoooo')\n")
-    fstr.write("    res = []\n")
-    # fstr.write("    print('looping')\n")
-    fstr.write("    for i in range(len(x_0)):\n")
-    # out_index = [x + "[i]" for x in out_args]
-    in_index = []
-    for arg, _var in zip(in_args, sigin):
-        in_index.append(arg + "[i]" if _var not in parameters else arg)
-    fstr.write("        res.append(jitted_f(" + ",".join(in_index) + "))\n")
-    # fstr.write("    print('returning')\n")
-    fstr.write("    return res\n")
-    return fstr.getvalue()
+    meta = [(recvar, records_signature[recvar]) for recvar in out_args]
+    result = rec_df.apply(to_apply, axis=1,  meta=meta)
+    return result
 
 
-def create_toplevel_function_string(args_out, args_in, pm_or_pf):
-    """
-    Create a string for a function of the form:
-
-        def hl_func(x_0, x_1, x_2, ...):
-            outputs = (...) = calc_func(...)
-            header = [...]
-            return DataFrame(data, columns=header)
-
-    Parameters
-    ----------
-    args_out: iterable of the out arguments
-
-    args_in: iterable of the in arguments
-
-    pm_or_pf: iterable of strings for object that holds each arg
-
-    Returns
-    -------
-    a String representing the function
-    """
-    fstr = io.StringIO()
-    fstr.write("def hl_func(pm, pf")
-    fstr.write("):\n")
-    fstr.write("    from pandas import DataFrame\n")
-    fstr.write("    import dask.dataframe as dd\n")
-    fstr.write("    import dask.array as da\n")
-    fstr.write("    import numpy as np\n")
-    fstr.write("    import pandas as pd\n")
-    fstr.write("    def get_values(x):\n")
-    fstr.write("        if isinstance(x, pd.Series):\n")
-    fstr.write("            res = x.values\n")
-    fstr.write("        elif isinstance(x, dd.Series):\n")
-    fstr.write("            return x.values.compute()\n")
-    fstr.write("        elif isinstance(x, da.Array):\n")
-    fstr.write("            return x.compute()\n")
-    fstr.write("        else:\n")
-    fstr.write("            res = x\n")
-    fstr.write("        return res\n")
-    # fstr.write("    print('getting outputs')\n")
-
-    # outs = []
-    # for ppp, attr in zip(pm_or_pf, args_out + args_in):
-    #     outs.append(ppp + "." + attr + ", ")
-    # outs = [m_or_f + "." + arg for m_or_f, arg in zip(pm_or_pf, args_out)]
-    # fstr.write("        (" + ", ".join(outs) + ") = \\\n")
-
-    # test array could be made...
-    # fstr.write("    t = (")
-    # for ppp, attr in zip(pm_or_pf, args_out + args_in):
-    #     fstr.write("get_values(" + ppp + "." + attr + ")" + ", ")
-    # fstr.write(")\n")
-    # fstr.write("    print('made t')\n")
-
-    fstr.write("    outputs = \\\n")
-
-    fstr.write("        " + "applied_f(")
-    for ppp, attr in zip(pm_or_pf, args_out + args_in):
-        fstr.write("get_values(" + ppp + "." + attr + ")" + ", ")
-    fstr.write(")\n")
-    fstr.write("    header = [")
-    col_headers = ["'" + out + "'" for out in args_out]
-    fstr.write(", ".join(col_headers))
-    fstr.write("]\n")
-    # fstr.write("    print('got outputs', outputs)\n")
-    fstr.write("    df = dd.from_array(da.from_array(outputs),"
-                "columns=header)\n")
-    # fstr.write("    print('got df', df.columns)\n")
-    fstr.write("    return df")
-    return fstr.getvalue()
-
-
-def make_apply_function(func, out_args, in_args, parameters,
-                        do_jit=DO_JIT, **kwargs):
-    """
-    Takes a calc-style function and creates the necessary Python code for
-    an apply-style function. Will also jit the function if desired.
-
-    Parameters
-    ----------
-    func: the calc-style function
-
-    out_args: list of out arguments for the apply-style function
-
-    in_args: list of in arguments for the apply-style function
-
-    parameters: iterable of which of the args (from in_args) are parameter
-                variables (as opposed to column records).  This influences
-                how we construct the apply-style function.
-
-    do_jit: Bool, if True, jit the resulting apply-style function
-
-    Returns
-    -------
-    apply-style function
-    """
-    if do_jit:
-        jitted_f = JIT(**kwargs)(func)
-    else:
-        jitted_f = func
-    apfunc = create_apply_function_string(out_args, in_args, parameters)
-    # print('apfunc', apfunc)
-    func_code = compile(apfunc, "<string>", "exec")
-    fakeglobals = {}
-    eval(func_code,  # pylint: disable=eval-used
-         {"jitted_f": jitted_f}, fakeglobals)
-    if do_jit:
-        return JIT(**kwargs)(fakeglobals['ap_func'])
-    return fakeglobals['ap_func']
-
-
-def apply_jit(dtype_sig_out, dtype_sig_in, parameters=None, **kwargs):
-    """
-    Make a decorator that takes in a calc-style function, handle apply step.
-    """
-    if not parameters:
-        parameters = []
-
-    def make_wrapper(func):
-        """
-        make_wrapper function nested in apply_jit function.
-        """
-        theargs = inspect.getfullargspec(func).args
-        jitted_apply = make_apply_function(func, dtype_sig_out,
-                                           dtype_sig_in, parameters, **kwargs)
-
-        def wrapper(*args):
-            """
-            wrapper function nested in make_wrapper function.
-            """
-            in_arrays = []
-            out_arrays = []
-            for farg in theargs:
-                if hasattr(args[0], farg):
-                    in_arrays.append(getattr(args[0], farg))
-                else:
-                    in_arrays.append(getattr(args[1], farg))
-            for farg in dtype_sig_out:
-                if hasattr(args[0], farg):
-                    out_arrays.append(getattr(args[0], farg))
-                else:
-                    out_arrays.append(getattr(args[1], farg))
-            final_array = out_arrays + in_arrays
-            ans = jitted_apply(*final_array)
-            return ans
-
-        return wrapper
-    return make_wrapper
+@delayed
+def hl_func(policy, records, pol_args, rec_args, out_args, jitted_f):
+    unique_rec_args = list(set(rec_args))
+    arr = da.stack([getattr(records, recvar) for recvar in unique_rec_args], axis=1)
+    rec_df = dd.from_dask_array(arr, columns=unique_rec_args)
+    pol_args = {arg: getattr(policy, arg) for arg in pol_args}
+    output = ap_func(pol_args, rec_df, out_args, records.signature(), jitted_f)
+    for c in output.columns:
+        setattr(records, c, output[c].values)
+    return output
 
 
 def iterate_jit(parameters=None, **kwargs):
@@ -279,18 +112,6 @@ def iterate_jit(parameters=None, **kwargs):
             if key in jit_args_list:
                 kwargs_for_jit[key] = val
 
-        # Any name that is a parameter
-        # Boolean flag is given special treatment.
-        # Identify those names here
-        param_list = Policy.parameter_list()
-        allowed_parameters = param_list
-        allowed_parameters += list(arg[1:] for arg in param_list)
-        additional_parameters = [arg for arg in in_args if
-                                 arg in allowed_parameters]
-        additional_parameters += parameters
-        # Remote duplicates
-        all_parameters = list(set(additional_parameters))
-
         src = inspect.getsourcelines(func)[0]
 
         # Discover the return arguments by walking
@@ -304,42 +125,29 @@ def iterate_jit(parameters=None, **kwargs):
         if not all_out_args:
             raise ValueError("Can't find return statement in function!")
 
-        # Now create the apply-style possibly-jitted function
-        applied_jitted_f = make_apply_function(func,
-                                               list(reversed(all_out_args)),
-                                               in_args,
-                                               parameters=all_parameters,
-                                               do_jit=DO_JIT,
-                                               **kwargs_for_jit)
+        if DO_JIT:
+            jitted_f = JIT(**kwargs)(func)
+        else:
+            jitted_f = func
 
         def wrapper(*args, **kwargs):
             """
             wrapper function nested in make_wrapper function nested
             in iterate_jit decorator.
             """
-            in_arrays = []
-            pm_or_pf = []
+            policy = args[0]
+            records = args[1]
+            pol_args = []
+            rec_args = []
             for farg in all_out_args + in_args:
-                if hasattr(args[0], farg):
-                    in_arrays.append(getattr(args[0], farg))
-                    pm_or_pf.append("pm")
-                elif hasattr(args[1], farg):
-                    in_arrays.append(getattr(args[1], farg))
-                    pm_or_pf.append("pf")
-            # Create the high level function
-            high_level_func = create_toplevel_function_string(all_out_args,
-                                                              list(in_args),
-                                                              pm_or_pf)
-            # print('func2', high_level_func)
-            func_code = compile(high_level_func, "<string>", "exec")
-            fakeglobals = {"taxcalc": taxcalc}
-            eval(func_code,  # pylint: disable=eval-used
-                 {"applied_f": applied_jitted_f}, fakeglobals)
-            high_level_fn = fakeglobals['hl_func']
-            ans = high_level_fn(*args, **kwargs)
-            # print("got ans", ans)
-            [setattr(args[1], c, ans[c].values) for c in ans.columns]
-            return ans
+                if hasattr(policy, farg):
+                    pol_args.append(farg)
+                elif hasattr(records, farg):
+                    rec_args.append(farg)
+                else:
+                    raise RuntimeError(f"unknown: {farg}")
+
+            return hl_func(policy, records, pol_args, rec_args, all_out_args, jitted_f)
 
         return wrapper
 
