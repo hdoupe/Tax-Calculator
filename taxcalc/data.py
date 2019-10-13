@@ -127,7 +127,7 @@ class Data():
                 if wt_colname in self.WT.columns:
                     self.s006 = self.WT[wt_colname] * 0.01
         if self.use_dask:
-            self.WT = dd.from_pandas(self.WT, npartitions=20)
+            self.WT = dd.from_pandas(self.WT, npartitions=30)
             # WT.to_dask_array(lengths=True)
 
     @property
@@ -202,6 +202,25 @@ class Data():
         self.CHANGING_CALCULATED_VARS = FLOAT_CALCULATED_VARS
         self.INTEGER_VARS = self.INTEGER_READ_VARS | INT_CALCULATED_VARS
 
+    @classmethod
+    def signature(cls):
+        assert cls.VARINFO_FILE_NAME is not None
+        assert cls.VARINFO_FILE_PATH is not None
+        file_path = os.path.join(cls.VARINFO_FILE_PATH,
+                                 cls.VARINFO_FILE_NAME)
+        if os.path.isfile(file_path):
+            with open(file_path) as pfile:
+                json_text = pfile.read()
+            vardict = json_to_dict(json_text)
+        else:  # find file in conda package
+            vardict = read_egg_json(
+                cls.VARINFO_FILE_NAME)  # pragma: no cover
+
+        def get_nptype(typestr):
+            return {"float": np.float64, "int": np.int32}.get(typestr)
+
+        return {k: get_nptype(v["type"]) for k, v in vardict['calc'].items()}
+
     def _read_data(self, data):
         """
         Read data from file or use specified DataFrame as data.
@@ -221,7 +240,7 @@ class Data():
             msg = 'data is neither a string nor a Pandas DataFrame'
             raise ValueError(msg)
         # if self.use_dask:
-        taxdf = dd.from_pandas(taxdf, npartitions=20)
+        taxdf = dd.from_pandas(taxdf, npartitions=30)
         arrdf = taxdf.to_dask_array(lengths=True)
         # comped = arrdf.compute()
         # for i, c in enumerate(taxdf.columns):
