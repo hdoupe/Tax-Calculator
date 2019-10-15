@@ -98,7 +98,7 @@ class Calculator():
         else:
             raise ValueError('must specify policy as a Policy object')
         if isinstance(records, Records):
-            self.__records = copy.deepcopy(records)
+            self.__records = records #copy.deepcopy(records)
         else:
             raise ValueError('must specify records as a Records object')
         if self.__policy.current_year < self.__records.data_year:
@@ -198,9 +198,7 @@ class Calculator():
         else:
             assert isinstance(variable_list, list)
             varlist = variable_list
-        arys = [self.array(varname) for varname in varlist]
-        dframe = pd.DataFrame(data=np.column_stack(arys), columns=varlist)
-        del arys
+        dframe = self.__records._datastore.loc[:, varlist]
         del varlist
         return dframe
 
@@ -214,7 +212,7 @@ class Calculator():
         """
         if variable_value is None:
             return getattr(self.__records, variable_name)
-        assert isinstance(variable_value, np.ndarray)
+        assert isinstance(variable_value, (pd.Series, np.ndarray))
         setattr(self.__records, variable_name, variable_value)
         return None
 
@@ -232,7 +230,7 @@ class Calculator():
         """
         Add variable_add to named variable in embedded Records object.
         """
-        assert isinstance(variable_add, np.ndarray)
+        assert isinstance(variable_add, (pd.Series, np.ndarray))
         setattr(self.__records, variable_name,
                 self.array(variable_name) + variable_add)
 

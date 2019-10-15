@@ -158,20 +158,20 @@ def test_calculator_mtr(cps_subsample):
         calc.mtr(variable_str='bad_income_type')
     (_, _, mtr_combined) = calc.mtr(variable_str='e00200s',
                                     calc_all_already_called=True)
-    assert isinstance(mtr_combined, np.ndarray)
+    assert isinstance(mtr_combined, (pd.Series, np.ndarray))
     (_, _, mtr_combined) = calc.mtr(variable_str='e00650',
                                     negative_finite_diff=True,
                                     calc_all_already_called=True)
-    assert isinstance(mtr_combined, np.ndarray)
+    assert isinstance(mtr_combined, (pd.Series, np.ndarray))
     (_, _, mtr_combined) = calc.mtr(variable_str='e00900p',
                                     calc_all_already_called=True)
-    assert isinstance(mtr_combined, np.ndarray)
+    assert isinstance(mtr_combined, (pd.Series, np.ndarray))
     (_, _, mtr_combined) = calc.mtr(variable_str='e01700',
                                     calc_all_already_called=True)
-    assert isinstance(mtr_combined, np.ndarray)
+    assert isinstance(mtr_combined, (pd.Series, np.ndarray))
     (_, _, mtr_combined) = calc.mtr(variable_str='e26270',
                                     calc_all_already_called=True)
-    assert isinstance(mtr_combined, np.ndarray)
+    assert isinstance(mtr_combined, (pd.Series, np.ndarray))
     (_, _, mtr_combined) = calc.mtr(variable_str='e00200p',
                                     calc_all_already_called=True)
     assert np.allclose(mtr_combined, mtr_cmb)
@@ -374,7 +374,7 @@ def test_calculator_using_nonstd_input():
     assert isinstance(dframe, pd.DataFrame)
     assert dframe.shape == (RAWINPUT_FUNITS, len(varlist))
     mars = calc.array('MARS')
-    assert isinstance(mars, np.ndarray)
+    assert isinstance(mars, (pd.Series, np.ndarray))
     assert mars.shape == (RAWINPUT_FUNITS,)
     exp_iitax = np.zeros((nonstd.array_length,))
     assert np.allclose(calc.array('iitax'), exp_iitax)
