@@ -10,7 +10,7 @@ import os
 import io
 import ast
 import inspect
-from functools import partial
+from functools import partial, wraps
 import numba
 import pandas as pd
 import dask.dataframe as dd
@@ -130,6 +130,7 @@ def iterate_jit(parameters=None, **kwargs):
         else:
             jitted_f = func
 
+        @wraps(func)
         def wrapper(*args, **kwargs):
             """
             wrapper function nested in make_wrapper function nested
