@@ -86,9 +86,9 @@ class Data():
         self.CALCULATED_VARS = set()
         self.CHANGING_CALCULATED_VARS = set()
         self.INTEGER_VARS = set()
-        if use_dask:
-            print("using dask")
         self.use_dask = use_dask
+        if self.use_dask:
+            print("Using dask")
         self._read_var_info()
         if data is not None:
             # check consistency of specified gfactors and weights
@@ -122,13 +122,14 @@ class Data():
                     sum_sub_weights = self.WT.sum()
                     factor = sum_full_weights / sum_sub_weights
                     self.WT *= factor
+
+                if self.use_dask:
+                    self.WT = dd.from_pandas(self.WT, npartitions=30)
+
                 # ... construct sample weights for current_year
                 wt_colname = 'WT{}'.format(self.current_year)
                 if wt_colname in self.WT.columns:
                     self.s006 = self.WT[wt_colname] * 0.01
-        if self.use_dask:
-            self.WT = dd.from_pandas(self.WT, npartitions=30)
-            # WT.to_dask_array(lengths=True)
 
     @property
     def data_year(self):
@@ -239,12 +240,11 @@ class Data():
         else:
             msg = 'data is neither a string nor a Pandas DataFrame'
             raise ValueError(msg)
-        # if self.use_dask:
-        taxdf = dd.from_pandas(taxdf, npartitions=30)
-        arrdf = taxdf.to_dask_array(lengths=True)
-        # comped = arrdf.compute()
-        # for i, c in enumerate(taxdf.columns):
-        #     print(i, c, da.allclose(taxdf[c], comped[:, i]).compute())
+        if self.use_dask:
+            taxdf = dd.from_pandas(taxdf, npartitions=30)
+            arrdf = taxdf.to_dask_array(lengths=True)
+        else:
+            arrdf = taxdf.to_numpy()
         self.__dim = len_df(taxdf)
         self.__index = taxdf.index
         # create class variables using taxdf column names
@@ -278,9 +278,6 @@ class Data():
             else:
                 setattr(self, varname,
                         arrlib.zeros(self.array_length, dtype=np.float64))
-            if self.use_dask and np.nan in getattr(self, varname).shape:
-                print('2 computing chunk size', varname, getattr(self, varname).shape)
-                getattr(self, varname).compute_chunk_sizes()
         # delete intermediate variables
         del READ_VARS
         del UNREAD_VARS

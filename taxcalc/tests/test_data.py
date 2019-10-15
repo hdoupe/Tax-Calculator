@@ -6,6 +6,7 @@ import tempfile
 import pytest
 import numpy as np
 import pandas as pd
+import dask.array as da
 from taxcalc import Data, GrowFactors
 
 
@@ -59,7 +60,8 @@ def fixture_recs_varinfo_json_file():
     os.remove(pfile.name)
 
 
-def test_recs_class(recs_varinfo_file, cps_subsample):
+@pytest.mark.parametrize("use_dask", [False, True])
+def test_recs_class(recs_varinfo_file, cps_subsample, use_dask):
     """
     Specify Data-derived Recs class and test it.
     """
@@ -71,8 +73,8 @@ def test_recs_class(recs_varinfo_file, cps_subsample):
         VARINFO_FILE_NAME = recs_varinfo_file.name
         VARINFO_FILE_PATH = ''
 
-        def __init__(self, data, start_year, gfactors, weights):
-            super().__init__(data, start_year, gfactors, weights)
+        def __init__(self, data, start_year, gfactors, weights, use_dask):
+            super().__init__(data, start_year, gfactors, weights, use_dask)
 
         def _extrapolate(self, year):
             self.e00300 *= self.gfactors.factor_value('AINTS', year)
@@ -80,25 +82,29 @@ def test_recs_class(recs_varinfo_file, cps_subsample):
     # test Recs class for incorrect instantiation
     with pytest.raises(ValueError):
         Recs(data=list(), start_year=2000,
-             gfactors=None, weights=None)
+             gfactors=None, weights=None, use_dask=use_dask)
     with pytest.raises(ValueError):
         Recs(data=cps_subsample, start_year=list(),
-             gfactors=None, weights=None)
+             gfactors=None, weights=None, use_dask=use_dask)
     with pytest.raises(ValueError):
         Recs(data=cps_subsample, start_year=2000,
-             gfactors=None, weights='')
+             gfactors=None, weights='', use_dask=use_dask)
     with pytest.raises(ValueError):
         Recs(data=cps_subsample, start_year=2000,
-             gfactors=GrowFactors(), weights=None)
+             gfactors=GrowFactors(), weights=None, use_dask=use_dask)
     with pytest.raises(ValueError):
         Recs(data=cps_subsample, start_year=2000,
-             gfactors='', weights='')
+             gfactors='', weights='', use_dask=use_dask)
     # test Recs class for correct instantiation with no aging of data
     syr = 2014
     rec = Recs(data=cps_subsample, start_year=syr,
-               gfactors=None, weights=None)
+               gfactors=None, weights=None, use_dask=use_dask)
     assert isinstance(rec, Recs)
     assert np.all(rec.MARS != 0)
+    if use_dask:
+      assert isinstance(rec.MARS, da.Array)
+    else:
+      assert isinstance(rec.MARS, np.ndarray)
     assert rec.data_year == syr
     assert rec.current_year == syr
     sum_e00300_in_syr = rec.e00300.sum()
@@ -112,7 +118,7 @@ def test_recs_class(recs_varinfo_file, cps_subsample):
     wghts_path = os.path.join(GrowFactors.FILE_PATH, 'cps_weights.csv.gz')
     wghts_df = pd.read_csv(wghts_path)
     rec = Recs(data=cps_subsample, start_year=syr,
-               gfactors=GrowFactors(), weights=wghts_df)
+               gfactors=GrowFactors(), weights=wghts_df, use_dask=use_dask)
     assert isinstance(rec, Recs)
     assert np.all(rec.MARS != 0)
     assert rec.data_year == syr

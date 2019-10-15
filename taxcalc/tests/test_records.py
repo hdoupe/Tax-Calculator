@@ -10,24 +10,25 @@ import pytest
 from io import StringIO
 from taxcalc import GrowFactors, Policy, Records, Calculator
 
-
-def test_incorrect_Records_instantiation(cps_subsample):
+@pytest.mark.parametrize("use_dask", [False, True])
+def test_incorrect_Records_instantiation(cps_subsample, use_dask):
     with pytest.raises(ValueError):
-        recs = Records(data=list())
+        recs = Records(data=list(), use_dask=use_dask)
     with pytest.raises(ValueError):
-        recs = Records(data=cps_subsample, gfactors=list())
+        recs = Records(data=cps_subsample, gfactors=list(), use_dask=use_dask)
     with pytest.raises(ValueError):
-        recs = Records(data=cps_subsample, gfactors=None, weights=list())
-    with pytest.raises(ValueError):
-        recs = Records(data=cps_subsample, gfactors=None, weights=None,
-                       start_year=list())
+        recs = Records(data=cps_subsample, gfactors=None, weights=list(), use_dask=use_dask)
     with pytest.raises(ValueError):
         recs = Records(data=cps_subsample, gfactors=None, weights=None,
-                       adjust_ratios=list())
+                       start_year=list(), use_dask=use_dask)
+    with pytest.raises(ValueError):
+        recs = Records(data=cps_subsample, gfactors=None, weights=None,
+                       adjust_ratios=list(), use_dask=use_dask)
 
 
-def test_correct_Records_instantiation(cps_subsample):
-    rec1 = Records.cps_constructor(data=cps_subsample, gfactors=None)
+@pytest.mark.parametrize("use_dask", [False, True])
+def test_correct_Records_instantiation(cps_subsample, use_dask):
+    rec1 = Records.cps_constructor(data=cps_subsample, gfactors=None, use_dask=use_dask)
     assert rec1
     assert np.all(rec1.MARS != 0)
     assert rec1.current_year == rec1.data_year
@@ -44,7 +45,8 @@ def test_correct_Records_instantiation(cps_subsample):
                    gfactors=GrowFactors(),
                    weights=wghts_df,
                    adjust_ratios=ratios_df,
-                   exact_calculations=False)
+                   exact_calculations=False,
+                   use_dask=use_dask)
     assert rec2
     assert np.all(rec2.MARS != 0)
     assert rec2.current_year == rec2.data_year
@@ -113,10 +115,11 @@ def test_read_cps_data(cps_fullsample):
         u'1,    1,   2\n'
     )
 ])
-def test_read_data(csv):
+@pytest.mark.parametrize("use_dask", [False, True])
+def test_read_data(csv, use_dask):
     df = pd.read_csv(StringIO(csv))
     with pytest.raises(ValueError):
-        Records(data=df)
+        Records(data=df, use_dask=True)
 
 
 def test_for_duplicate_names():

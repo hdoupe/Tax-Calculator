@@ -15,6 +15,22 @@ from taxcalc.growfactors import GrowFactors
 from taxcalc.utils import read_egg_csv
 
 
+def allclose(a, b, **kwargs):
+    """
+    Wraps np and da allclose functions to abstract away differences
+    between the dask array and np array APIs.
+    """
+    if isinstance(a, da.Array) and isinstance(b, da.Array):
+        # compute shape on arrays with unknown dimensions
+        if any(map(np.isnan, a.shape)):
+            a.compute_chunk_sizes()
+        if any(map(np.isnan, b.shape)):
+            b.compute_chunk_sizes()
+        return da.allclose(a, b, **kwargs)
+    else:
+        return np.allclose(a, b, **kwargs)
+
+
 class Records(Data):
     """
     Records is a subclass of the abstract Data class, and therefore,
@@ -137,7 +153,6 @@ class Records(Data):
         self._read_ratios(adjust_ratios)
 
         arrlib = da if self.use_dask else np
-        print("arrlib", arrlib)
         # specify exact value based on exact_calculations
         # da doesn't support slicing...
         if exact_calculations:
@@ -156,51 +171,49 @@ class Records(Data):
         self.sep = arrlib.where(self.MARS == 3, 2, 1).astype(self.sep.dtype)
         # check for valid EIC values
         if not arrlib.all(arrlib.logical_and(arrlib.greater_equal(self.EIC, 0),
-                                     arrlib.less_equal(self.EIC, 3))).compute():
+                          arrlib.less_equal(self.EIC, 3))):
             raise ValueError('not all EIC values in [0,3] range')
         # check that three sets opd.f split-earnings variables have valid values
         msg = 'expression "{0} == {0}p + {0}s" is not true for every record'
         tol = 0.020001  # handles "%.2f" rounding errors
         # TODO: handle both cases
-        if not arrlib.allclose(self.e00200, (self.e00200p + self.e00200s),
-                           rtol=0.0, atol=tol):
+        if not allclose(self.e00200, (self.e00200p + self.e00200s),
+                        rtol=0.0, atol=tol):
             raise ValueError(msg.format('e00200'))
-        if not da.allclose(self.e00900, (self.e00900p + self.e00900s),
-                           rtol=0.0, atol=tol):
+        if not allclose(self.e00900, (self.e00900p + self.e00900s),
+                        rtol=0.0, atol=tol):
             raise ValueError(msg.format('e00900'))
-        if not da.allclose(self.e02100, (self.e02100p + self.e02100s),
-                           rtol=0.0, atol=tol):
+        if not allclose(self.e02100, (self.e02100p + self.e02100s),
+                        rtol=0.0, atol=tol):
             raise ValueError(msg.format('e02100'))
         # check that spouse income variables have valid values
         nospouse = self.MARS != 2
-        # TODO: why won't this work without the extra compute call?
+
         if self.use_dask:
+            # Value must be computed for zeros_like to work.
             zeros = arrlib.zeros_like(self.MARS[nospouse].compute())
         else:
             zeros = np.zeros_like(self.MARS[nospouse])
         msg = '{} is not always zero for non-married filing unit'
-        # breakpoint()
-        if not arrlib.allclose(self.e00200s[nospouse].compute(), zeros):
+        if not allclose(self.e00200s[nospouse], zeros):
             raise ValueError(msg.format('e00200s'))
-        if not arrlib.allclose(self.e00900s[nospouse].compute(), zeros):
+        if not allclose(self.e00900s[nospouse], zeros):
             raise ValueError(msg.format('e00900s'))
-        if not arrlib.allclose(self.e02100s[nospouse].compute(), zeros):
+        if not allclose(self.e02100s[nospouse], zeros):
             raise ValueError(msg.format('e02100s'))
-        # TODO: set array shape on nospouse since k1bx14s has a defined shape?
-        nospouse.compute_chunk_sizes()
-        if not arrlib.allclose(self.k1bx14s[nospouse].compute(), zeros):
+        if not allclose(self.k1bx14s[nospouse], zeros):
             raise ValueError(msg.format('k1bx14s'))
         # check that ordinary dividends are no less than qualified dividends
         other_dividends = arrlib.maximum(0., self.e00600 - self.e00650)
-        if not arrlib.allclose(self.e00600, self.e00650 + other_dividends,
+        if not allclose(self.e00600, self.e00650 + other_dividends,
                            rtol=0.0, atol=tol):
             msg = 'expression "e00600 >= e00650" is not true for every record'
             raise ValueError(msg)
         del other_dividends
         # check that total pension income is no less than taxable pension inc
         nontaxable_pensions = arrlib.maximum(0., self.e01500 - self.e01700)
-        if not np.allclose(self.e01500, self.e01700 + nontaxable_pensions,
-                           rtol=0.0, atol=tol):
+        if not allclose(self.e01500, self.e01700 + nontaxable_pensions,
+                        rtol=0.0, atol=tol):
             msg = 'expression "e01500 >= e01700" is not true for every record'
             raise ValueError(msg)
         del nontaxable_pensions
@@ -287,21 +300,36 @@ class Records(Data):
         self.e00650 *= gfv['ADIVS']
         self.e00700 *= gfv['ATXPY']
         self.e00800 *= gfv['ATXPY']
-        self.e00900s = arrlib.where(self.e00900s >= 0,
-                                   self.e00900s * gfv['ASCHCI'],
-                                   self.e00900s * gfv['ASCHCL'])
-        self.e00900p = arrlib.where(self.e00900p >= 0,
-                                   self.e00900p * gfv['ASCHCI'],
-                                   self.e00900p * gfv['ASCHCL'])
+        if self.use_dask:
+            self.e00900s = arrlib.where(self.e00900s >= 0,
+                                    self.e00900s * gfv['ASCHCI'],
+                                    self.e00900s * gfv['ASCHCL'])
+            self.e00900p = arrlib.where(self.e00900p >= 0,
+                                    self.e00900p * gfv['ASCHCI'],
+                                    self.e00900p * gfv['ASCHCL'])
+        else:
+            self.e00900s[:] = arrlib.where(self.e00900s >= 0,
+                                    self.e00900s * gfv['ASCHCI'],
+                                    self.e00900s * gfv['ASCHCL'])
+            self.e00900p[:] = arrlib.where(self.e00900p >= 0,
+                                    self.e00900p * gfv['ASCHCI'],
+                                    self.e00900p * gfv['ASCHCL'])
+
         self.e00900 = self.e00900p + self.e00900s
         self.e01100 *= gfv['ACGNS']
         self.e01200 *= gfv['ACGNS']
         self.e01400 *= gfv['ATXPY']
         self.e01500 *= gfv['ATXPY']
         self.e01700 *= gfv['ATXPY']
-        self.e02000 = arrlib.where(self.e02000 >= 0,
-                                  self.e02000 * gfv['ASCHEI'],
-                                  self.e02000 * gfv['ASCHEL'])
+
+        if self.use_dask:
+            self.e02000 = arrlib.where(self.e02000 >= 0,
+                                    self.e02000 * gfv['ASCHEI'],
+                                    self.e02000 * gfv['ASCHEL'])
+        else:
+            self.e02000[:] = arrlib.where(self.e02000 >= 0,
+                                    self.e02000 * gfv['ASCHEI'],
+                                    self.e02000 * gfv['ASCHEL'])
         self.e02100 *= gfv['ASCHF']
         self.e02100p *= gfv['ASCHF']
         self.e02100s *= gfv['ASCHF']
