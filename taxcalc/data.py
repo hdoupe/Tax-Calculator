@@ -241,7 +241,8 @@ class Data():
             msg = 'data is neither a string nor a Pandas DataFrame'
             raise ValueError(msg)
         if self.use_dask:
-            taxdf = dd.from_pandas(taxdf, npartitions=30)
+            if isinstance(taxdf, pd.DataFrame):
+                taxdf = dd.from_pandas(taxdf, npartitions=30)
             arrdf = taxdf.to_dask_array(lengths=True)
         else:
             arrdf = taxdf.to_numpy()
