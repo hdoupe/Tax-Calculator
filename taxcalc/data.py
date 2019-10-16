@@ -217,7 +217,7 @@ class Data():
 
         # TODO: Is it ok to set copy=False?
         self._datastore = self._datastore.astype(
-            {v: vtype for v, vtype in self.signature().items() if v in self._datastore.columns}
+            {v: vtype for v, vtype in self.signature().items() if v in self._datastore.columns}, copy=False
         )
 
         # check that MUST_READ_VARS are all present in taxdf
@@ -233,6 +233,7 @@ class Data():
                 self._datastore[varname] = np.zeros(self.array_length, dtype=np.int32)
             else:
                 self._datastore[varname] = np.zeros(self.array_length, dtype=np.float64)
+
         # delete intermediate variables
         del READ_VARS
         del UNREAD_VARS
@@ -262,7 +263,11 @@ class Data():
         def get_nptype(typestr):
             return {"float": np.float64, "int": np.int32}.get(typestr)
 
-        return {k: get_nptype(v["type"]) for k, v in vardict['calc'].items()}
+        return {
+            k: get_nptype(v["type"])
+            for vartype in vardict
+            for k, v in vardict[vartype].items()
+        }
 
     def _read_weights(self, weights):
         """
