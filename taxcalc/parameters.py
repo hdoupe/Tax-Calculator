@@ -236,17 +236,17 @@ class Parameters(pt.Parameters):
                 if param.endswith("-indexed"):
                     param = param.split("-indexed")[0]
                 if self._data[param].get("indexed", False):
-                    init_vals[param] = pt.select_lte(
-                        self._init_values[param],
-                        True,
-                        {"year": cpi_min_year["year"]},
-                    )
+                    # init_vals[param] = pt.select_lte(
+                    #     self._init_values[param],
+                    #     True,
+                    #     {"year": cpi_min_year["year"]},
+                    # )
                     to_delete[param] = self.select_gt(
-                        param, year=cpi_min_year["year"]
+                        param, strict=True, _auto=True, year=cpi_min_year["year"]
                     )
                     needs_reset.append(param)
             self.delete(to_delete, **kwargs)
-            super().adjust(init_vals, **kwargs)
+            # super().adjust(init_vals, **kwargs)
 
             # 1.b For all others, these are years after last_known_year.
             last_known_year = max(cpi_min_year["year"], self._last_known_year)
@@ -293,7 +293,7 @@ class Parameters(pt.Parameters):
                 else:
                     pass
             self._update(long_param_vals, False, True)
-            init_vals = {}
+            # init_vals = {}
             to_delete = {}
             for param in self._data:
                 if (
@@ -303,18 +303,18 @@ class Parameters(pt.Parameters):
                 ):
                     continue
                 if self._data[param].get("indexed", False):
-                    init_vals[param] = pt.select_lte(
-                        self._init_values[param],
-                        True,
-                        {"year": last_known_year}
-                    )
+                    # init_vals[param] = pt.select_lte(
+                    #     self._init_values[param],
+                    #     True,
+                    #     {"year": last_known_year}
+                    # )
                     to_delete[param] = self.select_eq(
                         param, strict=True, _auto=True
                     )
                     needs_reset.append(param)
 
             self.delete(to_delete, **kwargs)
-            super().adjust(init_vals, **kwargs)
+            # super().adjust(init_vals, **kwargs)
 
             self.extend(label="year")
 
