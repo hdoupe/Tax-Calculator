@@ -113,10 +113,27 @@ def test_round_trip_tcja_reform(tests_path):
         rtr_fails = open('fails_rtr', 'w')
         clp_fails = open('fails_clp', 'w')
     fail_params = list()
+
+    # test inflation rates are the same.
+    np.testing.assert_allclose(pol.inflation_rates(), clp_pol.inflation_rates())
+    
     msg = '\nRound-trip-reform and current-law-policy param values differ for:'
+
+    spec = pol.specification(meta_data=True)
+    years = list(range(pol.start_year, pol.end_year))
     for pname in clp_mdata.keys():
         rtr_val = rtr_mdata[pname]
         clp_val = clp_mdata[pname]
+
+        # Test inflation rates applied correctly.
+        if spec[pname].get("indexed"):
+            full_rtr_val = pol.to_array(pname, year=years)
+            full_clp_val = pol.to_array(pname, year=years)
+            if np.all(full_rtr_val > 0) and np.all(full_clp_val > 0):
+                np.testing.assert_allclose(
+                    full_clp_val[1:] / full_clp_val[:-1],
+                    full_rtr_val[1:] / full_rtr_val[:-1]
+                )
         if not np.allclose(rtr_val, clp_val):
             fail_params.append(pname)
             msg += '\n  {} in {} : rtr={} clp={}'.format(
