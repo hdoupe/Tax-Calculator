@@ -86,9 +86,9 @@ def test_round_trip_tcja_reform(tests_path):
     # pylint: disable=too-many-locals
     fyear = 2020
     # create clp metadata dictionary for current-law policy in fyear
-    pol = Policy()
-    pol.set_year(fyear)
-    clp_mdata = dict(pol.items())
+    clp_pol = Policy()
+    clp_pol.set_year(fyear)
+    clp_mdata = dict(clp_pol.items())
     # create rtr metadata dictionary for round-trip reform in fyear
     pol = Policy()
     reform_file = os.path.join(tests_path, '..', 'reforms', '2017_law.json')
@@ -125,6 +125,7 @@ def test_round_trip_tcja_reform(tests_path):
             if fail_dump:
                 rtr_fails.write('{} {} {}\n'.format(pname, fyear, rtr_val))
                 clp_fails.write('{} {} {}\n'.format(pname, fyear, clp_val))
+    # breakpoint()
     if fail_dump:
         rtr_fails.close()
         clp_fails.close()
