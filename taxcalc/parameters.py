@@ -228,7 +228,6 @@ class Parameters(pt.Parameters):
                 ] += cpi_vo["value"]
             # 1. Delete all unknown values.
             # 1.a For revision, these are years specified after cpi_min_year.
-            init_vals = {}
             to_delete = {}
             for param in params:
                 if param == "CPI_offset" or param in self._wage_indexed:
@@ -236,17 +235,14 @@ class Parameters(pt.Parameters):
                 if param.endswith("-indexed"):
                     param = param.split("-indexed")[0]
                 if self._data[param].get("indexed", False):
-                    # init_vals[param] = pt.select_lte(
-                    #     self._init_values[param],
-                    #     True,
-                    #     {"year": cpi_min_year["year"]},
-                    # )
-                    to_delete[param] = self.select_gt(
-                        param, strict=True, _auto=True, year=cpi_min_year["year"]
+                    eq = self.select_eq(
+                        param, strict=True, _auto=True,
+                    )
+                    to_delete[param] = pt.select_gt(
+                        eq, strict=True, labels=dict(year=cpi_min_year["year"]),
                     )
                     needs_reset.append(param)
             self.delete(to_delete, **kwargs)
-            # super().adjust(init_vals, **kwargs)
 
             # 1.b For all others, these are years after last_known_year.
             last_known_year = max(cpi_min_year["year"], self._last_known_year)
@@ -270,51 +266,45 @@ class Parameters(pt.Parameters):
             for year in range(pyear, fyear):
                 final_ifactor *= 1 + \
                     self._inflation_rates[year - self.start_year]
-            long_param_vals = {}
+            long_param_vals = defaultdict(list)
             # compute final year parameter value
             for param in long_params:
-                long_param_vals[param] = {}
                 # only revert param in 2026 if it's not in revision
                 if params.get(param) is None:
-                    list_vals = []
                     # grab param values from 2017
-                    for dim in self.select_eq(param, year=pyear):
-                        list_vals.append(dim['value'])
-                    new_vals = []
+                    vos = self.select_eq(param, year=pyear)
                     # use final_ifactor to inflate from 2017 to 2026
-                    for idx in range(0, len(list_vals)):
-                        val = min(9e99, round(
-                            list_vals[idx] * final_ifactor, 0))
-                        new_vals.append(val)
-                    if len(list_vals) == 1:
-                        long_param_vals[param][fyear] = new_vals[0]
-                    else:
-                        long_param_vals[param][fyear] = new_vals
-                else:
-                    pass
-            self._update(long_param_vals, False, True)
-            # init_vals = {}
+                    for vo in vos:
+                        long_param_vals[param].append(
+                            # Create new dict to avoid modifying the original..
+                            dict(
+                                vo,
+                                value=min(9e99, round(
+                                    vo["value"] * final_ifactor, 0)),
+                                year=fyear,
+                            )
+                        )
+                    needs_reset.append(param)
+            super().adjust(long_param_vals, **kwargs)
+
             to_delete = {}
             for param in self._data:
                 if (
                     param in params or
+                    param in long_params or
                     param == "CPI_offset" or
                     param in self._wage_indexed
                 ):
                     continue
                 if self._data[param].get("indexed", False):
-                    # init_vals[param] = pt.select_lte(
-                    #     self._init_values[param],
-                    #     True,
-                    #     {"year": last_known_year}
-                    # )
-                    to_delete[param] = self.select_eq(
-                        param, strict=True, _auto=True
+                    eq = self.select_eq(
+                        param, strict=True, _auto=True,
+                    )
+                    to_delete[param] = pt.select_gt(
+                        eq, strict=True, labels=dict(year=last_known_year)
                     )
                     needs_reset.append(param)
-
             self.delete(to_delete, **kwargs)
-            # super().adjust(init_vals, **kwargs)
 
             self.extend(label="year")
 
