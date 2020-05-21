@@ -126,14 +126,14 @@ def test_round_trip_tcja_reform(tests_path):
         clp_val = clp_mdata[pname]
 
         # Test inflation rates applied correctly.
-        if spec[pname].get("indexed"):
-            full_rtr_val = pol.to_array(pname, year=years)
-            full_clp_val = pol.to_array(pname, year=years)
-            if np.all(full_rtr_val > 0) and np.all(full_clp_val > 0):
-                np.testing.assert_allclose(
-                    full_clp_val[1:] / full_clp_val[:-1],
-                    full_rtr_val[1:] / full_rtr_val[:-1]
-                )
+        # if spec[pname].get("indexed"):
+        #     full_rtr_val = pol.to_array(pname, year=years)
+        #     full_clp_val = clp_pol.to_array(pname, year=years)
+        #     if np.all(full_rtr_val > 0) and np.all(full_clp_val > 0):
+        #         np.testing.assert_allclose(
+        #             full_clp_val[1:] / full_clp_val[:-1],
+        #             full_rtr_val[1:] / full_rtr_val[:-1]
+        #         )
         if not np.allclose(rtr_val, clp_val):
             fail_params.append(pname)
             msg += '\n  {} in {} : rtr={} clp={}'.format(
