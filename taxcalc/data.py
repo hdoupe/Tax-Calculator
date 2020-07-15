@@ -209,15 +209,22 @@ class Data():
         READ_VARS = set()
         self.IGNORED_VARS = set()
 
-        self.IGNORED_VARS = set(self._datastore.columns) - self.USABLE_READ_VARS
-        # TODO: figure out why extra columns are included and drop errors kwarg.
+        self.IGNORED_VARS = (
+            set(self._datastore.columns) - self.USABLE_READ_VARS
+        )
+        # TODO: figure out why extra columns are included and drop errors
+        # kwarg.
         self._datastore.drop(self.IGNORED_VARS, inplace=True, errors="ignore")
 
         READ_VARS = set(self._datastore.columns)
 
-        # TODO: Is it ok to set copy=False?
         self._datastore = self._datastore.astype(
-            {v: vtype for v, vtype in self.signature().items() if v in self._datastore.columns}, copy=False
+            {
+                v: vtype
+                for v, vtype in self.signature().items()
+                if v in self._datastore.columns
+            },
+            copy=False
         )
 
         # check that MUST_READ_VARS are all present in taxdf
@@ -230,9 +237,13 @@ class Data():
         ZEROED_VARS = self.CALCULATED_VARS | UNREAD_VARS
         for varname in ZEROED_VARS:
             if varname in self.INTEGER_VARS:
-                self._datastore[varname] = np.zeros(self.array_length, dtype=np.int32)
+                self._datastore[varname] = np.zeros(
+                    self.array_length, dtype=np.int32
+                )
             else:
-                self._datastore[varname] = np.zeros(self.array_length, dtype=np.float64)
+                self._datastore[varname] = np.zeros(
+                    self.array_length, dtype=np.float64
+                )
 
         # delete intermediate variables
         del READ_VARS
@@ -300,17 +311,32 @@ class Data():
         # Override this empty method in subclass
 
     def __getattr__(self, attr):
+        """
+        This method is called each time Python can't look up the attribute on
+        the instance. So, if you try `recs.s006`, Python checks to see if
+        `s006` is an attribute on the instance. If it isn't, then the
+        `__getattr__` method is called.
+
+        This method checks that attr is a column is on the `_datastore` object
+        and updates the corresponding column if it is.
+        """
         if attr in super().__getattribute__("_datastore").columns:
             return self._datastore[attr]
         else:
             raise AttributeError(f"{attr} not definied.")
 
     def __setattr__(self, attr, obj):
-        if attr != "_datastore" and hasattr(self, "_datastore") and attr in self._datastore.columns:
-            if isinstance(self._datastore, pd.DataFrame):
-                self._datastore[attr] = obj
-            else:
-                # ddf does not do inplace column assignments or updates.
-                self._datastore = self._datastore.assign(attr, obj)
+        """
+        This method is called every time an attribute is set or updated on a
+        `Data` instance. It checks to see if attr is in the _datastore. If it
+        is, then the corresponding column on the _datastore is updated.
+        Otherwise, the normal `__setattr__` method is called.
+        """
+        if (
+            attr != "_datastore" and
+            hasattr(self, "_datastore") and
+            attr in self._datastore.columns
+        ):
+            self._datastore[attr] = obj
         else:
             super().__setattr__(attr, obj)

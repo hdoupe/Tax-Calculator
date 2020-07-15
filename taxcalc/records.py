@@ -264,11 +264,11 @@ class Records(Data):
         self.e00700 *= gfv['ATXPY']
         self.e00800 *= gfv['ATXPY']
         self.e00900s = np.where(self.e00900s >= 0,
-                                   self.e00900s * gfv['ASCHCI'],
-                                   self.e00900s * gfv['ASCHCL'])
+                                self.e00900s * gfv['ASCHCI'],
+                                self.e00900s * gfv['ASCHCL'])
         self.e00900p = np.where(self.e00900p >= 0,
-                                   self.e00900p * gfv['ASCHCI'],
-                                   self.e00900p * gfv['ASCHCL'])
+                                self.e00900p * gfv['ASCHCI'],
+                                self.e00900p * gfv['ASCHCL'])
         self.e00900 = self.e00900p + self.e00900s
         self.e01100 *= gfv['ACGNS']
         self.e01200 *= gfv['ACGNS']
@@ -276,8 +276,8 @@ class Records(Data):
         self.e01500 *= gfv['ATXPY']
         self.e01700 *= gfv['ATXPY']
         self.e02000 = np.where(self.e02000 >= 0,
-                                  self.e02000 * gfv['ASCHEI'],
-                                  self.e02000 * gfv['ASCHEL'])
+                               self.e02000 * gfv['ASCHEI'],
+                               self.e02000 * gfv['ASCHEL'])
         self.e02100 *= gfv['ASCHF']
         self.e02100p *= gfv['ASCHF']
         self.e02100s *= gfv['ASCHF']
