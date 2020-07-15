@@ -207,6 +207,7 @@ class Data():
         # create class variables using taxdf column names
         READ_VARS = set()
         self.IGNORED_VARS = set()
+        total_bytes = 0
         for varname in list(taxdf.columns.values):
             if varname in self.USABLE_READ_VARS:
                 READ_VARS.add(varname)
@@ -216,8 +217,10 @@ class Data():
                 else:
                     setattr(self, varname,
                             taxdf[varname].astype(np.float64).values)
+                total_bytes += getattr(self, varname).nbytes
             else:
                 self.IGNORED_VARS.add(varname)
+        print("mem", total_bytes)
         # check that MUST_READ_VARS are all present in taxdf
         if not self.MUST_READ_VARS.issubset(READ_VARS):
             msg = 'data missing one or more MUST_READ_VARS'
@@ -234,10 +237,13 @@ class Data():
             else:
                 setattr(self, varname,
                         np.zeros(self.array_length, dtype=np.float64))
+            total_bytes += getattr(self, varname).nbytes
         # delete intermediate variables
         del READ_VARS
         del UNREAD_VARS
         del ZEROED_VARS
+
+        print("total mem", total_bytes)
 
     def zero_out_changing_calculated_vars(self):
         """
