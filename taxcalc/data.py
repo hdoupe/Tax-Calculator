@@ -220,7 +220,7 @@ class Data():
                 total_bytes += getattr(self, varname).nbytes
             else:
                 self.IGNORED_VARS.add(varname)
-        print("mem", total_bytes)
+        print("mem from csv", total_bytes)
         # check that MUST_READ_VARS are all present in taxdf
         if not self.MUST_READ_VARS.issubset(READ_VARS):
             msg = 'data missing one or more MUST_READ_VARS'
@@ -243,7 +243,7 @@ class Data():
         del UNREAD_VARS
         del ZEROED_VARS
 
-        print("total mem", total_bytes)
+        print("total memory", total_bytes)
 
     def zero_out_changing_calculated_vars(self):
         """
