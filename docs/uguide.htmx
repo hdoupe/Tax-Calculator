@@ -312,6 +312,17 @@
   its own set of three age-group-count input variables.
 </p>
 
+<p>
+  The name of your input data file is also relevant to how <kbd>tc</kbd> will
+  behave. If your file name ends with "puf.csv" or "cps.csv", <kbd>tc</kbd> 
+  will automatically extrapolate your data from its base year to the year you 
+  specify for tax calculations to be calculated using built in growth factors,
+  extrapolated weights, and other adjustment factors. If you are not using 
+  the "puf.csv" or "cps.csv" files produced by the TaxData project, it is 
+  likely that your data will not be compatible with these extrapolations and 
+  you should adopt filenames with alternative endings. 
+</p>
+
 <h4 id="cli-init-analysis">2e. Initiate Reform Analysis</h4>
 
 <p>
@@ -546,7 +557,7 @@ You loaded data for 2014.
 Tax-Calculator startup automatically extrapolated your data to 2022.
 
 (7)$ ls cps-22*
-cps-22-#-ref3-#-doc.text  cps-22-#-ref3-#.csv
+cps-22-#-ref3-#-doc.text	cps-22-#-ref3-#.csv
 cps-22-#-ref3-#-tab.text
 
 (7)$ cat cps-22-#-ref3-#-tab.text
@@ -608,8 +619,8 @@ You loaded data for 2014.
 Tax-Calculator startup automatically extrapolated your data to 2024.
 
 (8)$ ls cps-24-*
-cps-24-#-ref3-#-atr.html  cps-24-#-ref3-#-pch.html
-cps-24-#-ref3-#-doc.text  cps-24-#-ref3-#.csv
+cps-24-#-ref3-#-atr.html	cps-24-#-ref3-#-pch.html
+cps-24-#-ref3-#-doc.text	cps-24-#-ref3-#.csv
 cps-24-#-ref3-#-mtr.html
 </pre></p>
 
@@ -867,7 +878,9 @@ bin number | weighted count | mean NON-NEGATIVE MTR in bin
 
 <h4 id="pol-social-security-taxability">3c. Social Security Taxability</h4>
 
-<!-- Social Security Taxability @ -->
+<!-- Social Security Taxability @ Threshold For Social Security Benefit Taxability 1 -->
+
+<!-- Social Security Taxability @ Threshold For Social Security Benefit Taxability 2 -->
 
 <h4 id="pol-above-the-line-deductions">3d. Above The Line Deductions</h4>
 
@@ -879,11 +892,17 @@ bin number | weighted count | mean NON-NEGATIVE MTR in bin
 
 <h4 id="pol-personal-exemptions">3e. Personal Exemptions</h4>
 
-<!-- Personal Exemptions @ -->
+<!-- Personal Exemptions @ Personal And Dependent Exemption Amount -->
+
+<!-- Personal Exemptions @ Personal Exemption Phaseout Rate -->
+
+<!-- Personal Exemptions @ Repeal for Dependents Under Age 18 -->
 
 <h4 id="pol-standard-deduction">3f. Standard Deduction</h4>
 
-<!-- Standard Deduction @ -->
+<!-- Standard Deduction @ Standard Deduction Amount -->
+
+<!-- Standard Deduction @ Additional Standard Deduction For Blind And Aged -->
 
 <h4 id="pol-nonrefundable-credits">3g. Nonrefundable Credits</h4>
 
