@@ -53,7 +53,14 @@ class Policy(Parameters):
         'FilerCredit_c': 'is a removed parameter name',
         'ALD_InvInc_ec_base_RyanBrady': 'is a removed parameter name',
         # TODO: following parameter renamed in PR 2292 merged on 2019-04-15
-        'cpi_offset': 'was renamed CPI_offset in release 2.0.0',
+        "cpi_offset": (
+            "was renamed parameter_indexing_CPI_offset. "
+            "See documentation for change in usage."
+        ),
+        "CPI_offset": (
+            "was renamed parameter_indexing_CPI_offset. "
+            "See documentation for change in usage."
+        ),
         # TODO: following parameters renamed in PR 2345 merged on 2019-06-24
         'PT_excl_rt':
         'was renamed PT_qbid_rt in release 2.4.0',
@@ -62,7 +69,11 @@ class Policy(Parameters):
         'PT_excl_wagelim_prt':
         'was renamed PT_qbid_taxinc_gap in release 2.4.0',
         'PT_excl_wagelim_rt':
-        'was renamed PT_qbid_w2_wages_rt in release 2.4.0'
+        'was renamed PT_qbid_w2_wages_rt in release 2.4.0',
+        'CTC_c_under5_bonus': 'was renamed CTC_c_under6_bonus.',
+        'ACTC_rt_bonus_under5family':
+        'was renamed ACTC_rt_bonus_under6family.',
+        'CTC_new_c_under5_bonus': 'was renamed CTC_new_c_under6_bonus.'
     }
     # (2) specify which Policy parameters have been redefined recently
     REDEFINED_PARAMS = {}
@@ -124,9 +135,12 @@ class Policy(Parameters):
 
     def set_rates(self):
         """Initialize taxcalc indexing data."""
-        cpi_vals = [vo["value"] for vo in self._data["CPI_offset"]["value"]]
-        # extend cpi_offset values through budget window if they
-        # have not been extended already.
+        cpi_vals = [
+            vo["value"] for
+            vo in self._data["parameter_indexing_CPI_offset"]["value"]
+        ]
+        # extend parameter_indexing_CPI_offset values through budget window
+        # if they have not been extended already.
         cpi_vals = cpi_vals + cpi_vals[-1:] * (
             self.end_year - self.start_year + 1 - len(cpi_vals)
         )

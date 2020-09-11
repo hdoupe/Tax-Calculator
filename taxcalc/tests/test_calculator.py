@@ -172,6 +172,9 @@ def test_calculator_mtr(cps_subsample):
     (_, _, mtr_combined) = calc.mtr(variable_str='e26270',
                                     calc_all_already_called=True)
     assert isinstance(mtr_combined, (pd.Series, np.ndarray))
+    (_, _, mtr_combined) = calc.mtr(variable_str='k1bx14p',
+                                    calc_all_already_called=True)
+    assert isinstance(mtr_combined, (pd.Series, np.ndarray))
     (_, _, mtr_combined) = calc.mtr(variable_str='e00200p',
                                     calc_all_already_called=True)
     assert np.allclose(mtr_combined, mtr_cmb)
@@ -717,7 +720,7 @@ def test_n65(cps_subsample):
     """
     recs = Records.cps_constructor(data=cps_subsample)
     calc = Calculator(policy=Policy(), records=recs)
-    assert calc.n65().sum() > 1500
+    assert calc.n65().sum() > 600
 
 
 def test_ce_aftertax_income(cps_subsample):
