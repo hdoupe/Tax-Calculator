@@ -112,7 +112,7 @@ class Parameters(pt.Parameters):
             if param != "schema"
         }
 
-    def adjust(self, params_or_path, print_warnings=True, **kwargs):
+    def adjust(self, params_or_path, print_warnings=True, raise_errors=True, **kwargs):
         """
         Implements custom warning and error handling.
 
@@ -128,11 +128,15 @@ class Parameters(pt.Parameters):
         else:
             kwargs["ignore_warnings"] = True
         self._warnings = {}
+        self._errors = {}
         try:
-            return self.adjust_with_indexing(params_or_path, **kwargs)
+            return self.adjust_with_indexing(params_or_path, raise_errors=True, **kwargs)
         except pt.ValidationError as ve:
-            if self.errors:
+            print("got", ve, raise_errors)
+            if self.errors and raise_errors:
                 raise ve
+            elif self.errors and not raise_errors:
+                return {}
             if print_warnings:
                 print("WARNING:")
                 print(self.warnings)
@@ -141,7 +145,7 @@ class Parameters(pt.Parameters):
             _warnings = copy.deepcopy(self._warnings)
             self._warnings = {}
             self._errors = {}
-            adjustment = self.adjust_with_indexing(params_or_path, **kwargs)
+            adjustment = self.adjust_with_indexing(params_or_path, raise_errors=True, **kwargs)
             self._warnings = _warnings
             return adjustment
 
@@ -327,7 +331,7 @@ class Parameters(pt.Parameters):
 
             self.delete(to_delete, **kwargs)
             super().adjust(init_vals, **kwargs)
-
+            # breakpoint()
             self.extend(label="year")
 
         # 2. Handle -indexed parameters.

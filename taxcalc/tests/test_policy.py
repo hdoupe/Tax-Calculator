@@ -1004,6 +1004,17 @@ def test_cpi_offset_on_reverting_params():
         p2._STD[ryear - syear], atol=0.5)
 
 
+def test_raise_errors_regression():
+    ref = {
+        "II_brk7-indexed": [{"value": True}],
+        "II_brk6": [{"value": 316700, "MARS": "single", "year": 2020}],
+        "II_brk7": [{"value": 445400, "MARS": "single", "year": 2020}],
+
+    }
+    pol = Policy()
+    pol.adjust(ref, raise_errors=True)
+    assert pol.errors
+
 class TestAdjust:
     """
     Test update and indexing rules as defined in the Parameters docstring.
