@@ -1012,7 +1012,7 @@ def test_raise_errors_regression():
 
     }
     pol = Policy()
-    pol.adjust(ref, raise_errors=True)
+    pol.adjust(ref, raise_errors=False)
     assert pol.errors
 
 class TestAdjust:
@@ -1192,14 +1192,14 @@ class TestAdjust:
         """
         pol1 = Policy()
         pol1.implement_reform({
-            "CTC_c": {2022: 1005},
+            "CTC_c": {2022: 1550},
             "CTC_c-indexed": {2022: True}
         })
 
         pol2 = Policy()
         pol2.adjust(
             {
-                "CTC_c": [{"year": 2022, "value": 1005}],
+                "CTC_c": [{"year": 2022, "value": 1550}],
                 "CTC_c-indexed": [{"year": 2022, "value": True}],
             }
         )
@@ -1210,8 +1210,8 @@ class TestAdjust:
         pol2.set_state(year=[2021, 2022, 2023])
         exp = np.array([
             pol0.CTC_c[0],
-            1005,
-            1005 * (1 + pol2.inflation_rates(year=2022))
+            1550,
+            1550 * (1 + pol2.inflation_rates(year=2022))
         ]).round(2)
 
         np.testing.assert_allclose(pol2.CTC_c, exp)

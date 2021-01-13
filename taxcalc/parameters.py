@@ -130,9 +130,13 @@ class Parameters(pt.Parameters):
         self._warnings = {}
         self._errors = {}
         try:
-            return self.adjust_with_indexing(params_or_path, raise_errors=True, **kwargs)
+            with self.transaction(
+                defer_validation=True,
+                raise_errors=True,
+                ignore_warnings=kwargs["ignore_warnings"],
+            ):
+                return self.adjust_with_indexing(params_or_path, raise_errors=True, **kwargs)
         except pt.ValidationError as ve:
-            print("got", ve, raise_errors)
             if self.errors and raise_errors:
                 raise ve
             elif self.errors and not raise_errors:
